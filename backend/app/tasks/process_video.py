@@ -4,6 +4,7 @@ from pathlib import Path
 from app.agents.graph import video_graph
 from app.celery_app import celery_app
 from app.config import settings
+from app.ingestion.audio import extract_audio
 from app.ingestion.keyframes import extract_keyframes
 from app.ingestion.youtube import download_video
 from app.vectorstore.index import VideoIndex
@@ -24,10 +25,20 @@ def process_video_task(self, youtube_url: str) -> dict:
         download["video_path"], video_id, max_frames=settings.max_keyframes_per_video
     )
 
+    # Only pull an audio-only track when it'll actually be used -- skip the
+    # extra encode entirely when YouTube's captions already cover it.
+    # Previously this passed `download["video_path"]` (the full muxed
+    # video, video stream included) straight to Whisper, which is what
+    # caused the 413s: the video stream dwarfs the audio and blew past
+    # Groq's upload limit on anything longer than a few minutes.
+    audio_path = None
+    if not download.get("caption_path"):
+        audio_path = extract_audio(download["video_path"], video_id)
+
     state = {
         "video_id": video_id,
         "video_path": download["video_path"],
-        "audio_path": download["video_path"],  # yt-dlp keeps audio muxed in
+        "audio_path": audio_path,
         "caption_path": download.get("caption_path"),
         "keyframes": keyframes,
     }
