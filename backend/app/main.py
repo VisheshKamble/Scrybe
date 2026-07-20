@@ -12,11 +12,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(videos.router)
-app.include_router(stream.router)
-app.include_router(qa.router)
-app.include_router(compare.router)
-app.include_router(export.router)
+app.include_router(videos.router, prefix="/api")
+app.include_router(stream.router, prefix="/api")
+app.include_router(qa.router, prefix="/api")
+app.include_router(compare.router, prefix="/api")
+app.include_router(export.router, prefix="/api")
 
 
 @app.get("/health")
