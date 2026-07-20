@@ -5,10 +5,13 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic-settings==2.5.2
 groq==0.11.0
+# Pinned below 0.28 -- newer httpx removed the 'proxies' kwarg that
+# groq==0.11.0 passes internally, which crashes client init otherwise.
+httpx==0.27.2
 langgraph==0.2.34
 celery==5.4.0
 redis==5.0.8
-yt-dlp==2024.10.7
+yt-dlp==2026.07.04
 scenedetect[opencv]==0.6.4
 faiss-cpu==1.8.0.post1
 sentence-transformers==3.1.1
