@@ -2,6 +2,7 @@ import base64
 
 from groq import Groq
 
+from app.agents.retry_utils import call_with_retries
 from app.config import settings
 
 client = Groq(api_key=settings.groq_api_key)
@@ -17,7 +18,8 @@ def describe_keyframe(image_path: str) -> str:
     screen (charts, code, slides, on-screen text), not just the audio.
     """
     encoded = _encode_image(image_path)
-    response = client.chat.completions.create(
+    response = call_with_retries(
+        client.chat.completions.create,
         model=settings.model_vision,
         messages=[{
             "role": "user",
