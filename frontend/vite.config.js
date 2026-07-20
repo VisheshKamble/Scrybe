@@ -5,7 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
+      // Inside the frontend container, "localhost" means the frontend
+      // container itself -- the backend lives in a separate container,
+      // reachable at its Docker Compose service name, "backend".
+      '/api': 'http://backend:8000',
     },
   },
 })
