@@ -1,7 +1,13 @@
 import { motion } from 'framer-motion'
-import { CheckCircle2, GitCompare, Link2, Plus, X } from 'lucide-react'
+import { AlertCircle, GitCompare, Link2, Plus, X } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import RecentList from '../components/RecentList.jsx'
 import { compareVideos } from '../lib/api.js'
+import { saveJobMeta, upsertHistoryEntry } from '../lib/storage.js'
+import { extractYoutubeId, isValidYoutubeUrl } from '../lib/youtube.js'
+
+const FOCUS_EXAMPLES = ['Which one explains it better', 'Contradicting claims', 'Pricing or numbers mentioned']
 
 const container = {
   hidden: {},
@@ -15,8 +21,9 @@ const item = {
 export default function Compare() {
   const [urls, setUrls] = useState(['', ''])
   const [focus, setFocus] = useState('')
-  const [status, setStatus] = useState(null)
+  const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const navigate = useNavigate()
 
   function updateUrl(i, value) {
     setUrls((prev) => prev.map((u, idx) => (idx === i ? value : u)))
@@ -28,13 +35,39 @@ export default function Compare() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    const cleaned = urls.filter(Boolean)
-    if (cleaned.length < 2) return
+    const cleaned = urls.map((u) => u.trim()).filter(Boolean)
+    if (cleaned.length < 2) {
+      setError('Add at least two YouTube links to compare.')
+      return
+    }
+    const invalid = cleaned.find((u) => !isValidYoutubeUrl(u))
+    if (invalid) {
+      setError(`"${invalid}" doesn\u2019t look like a valid YouTube link.`)
+      return
+    }
+
     setSubmitting(true)
+    setError(null)
     try {
       const res = await compareVideos(cleaned, focus || undefined)
-      setStatus(`Comparison started \u2014 job ${res.job_id}`)
-    } finally {
+      saveJobMeta(res.job_id, {
+        youtubeUrls: cleaned,
+        youtubeIds: cleaned.map(extractYoutubeId),
+        focus,
+        startedAt: Date.now(),
+      })
+      upsertHistoryEntry({
+        id: res.job_id,
+        type: 'compare',
+        jobId: res.job_id,
+        youtubeUrls: cleaned,
+        youtubeIds: cleaned.map(extractYoutubeId),
+        status: 'processing',
+        createdAt: Date.now(),
+      })
+      navigate(`/app/compare/${res.job_id}`)
+    } catch (err) {
+      setError(err.message)
       setSubmitting(false)
     }
   }
@@ -61,31 +94,36 @@ export default function Compare() {
 
       <motion.form variants={item} onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-2.5">
-          {urls.map((u, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2.5 rounded-xl border border-lp-line bg-lp-card pl-3.5 pr-2 py-1 shadow-card focus-within:border-lp-violet/50 transition-colors duration-200"
-            >
-              <span className="font-mono text-[10.5px] text-lp-faint w-4 shrink-0">{i + 1}</span>
-              <Link2 size={14} className="text-lp-faint shrink-0" strokeWidth={2} />
-              <input
-                value={u}
-                onChange={(e) => updateUrl(i, e.target.value)}
-                placeholder={`YouTube URL ${i + 1}`}
-                className="flex-1 bg-transparent py-2.5 text-[13.5px] font-mono text-lp-ink placeholder:text-lp-faint outline-none min-w-0"
-              />
-              {urls.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() => removeUrl(i)}
-                  aria-label="Remove video"
-                  className="p-1.5 text-lp-faint hover:text-lp-red transition-colors shrink-0"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          ))}
+          {urls.map((u, i) => {
+            const invalid = u.trim().length > 0 && !isValidYoutubeUrl(u)
+            return (
+              <div
+                key={i}
+                className={`flex items-center gap-2.5 rounded-xl border bg-lp-card pl-3.5 pr-2 py-1 shadow-card transition-colors duration-200 ${
+                  invalid ? 'border-lp-red/40' : 'border-lp-line focus-within:border-lp-violet/50'
+                }`}
+              >
+                <span className="font-mono text-[10.5px] text-lp-faint w-4 shrink-0">{i + 1}</span>
+                <Link2 size={14} className="text-lp-faint shrink-0" strokeWidth={2} />
+                <input
+                  value={u}
+                  onChange={(e) => updateUrl(i, e.target.value)}
+                  placeholder={`YouTube URL ${i + 1}`}
+                  className="flex-1 bg-transparent py-2.5 text-[13.5px] font-mono text-lp-ink placeholder:text-lp-faint outline-none min-w-0"
+                />
+                {urls.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeUrl(i)}
+                    aria-label="Remove video"
+                    className="p-1.5 text-lp-faint hover:text-lp-red transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         <button
@@ -106,6 +144,19 @@ export default function Compare() {
           />
         </div>
 
+        <div className="flex flex-wrap gap-1.5">
+          {FOCUS_EXAMPLES.map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFocus(f)}
+              className="text-[11.5px] font-medium text-lp-muted border border-lp-line bg-lp-card rounded-full px-2.5 py-1 hover:border-lp-violet/40 hover:text-lp-violet transition-colors"
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
         <button
           type="submit"
           disabled={submitting}
@@ -120,16 +171,20 @@ export default function Compare() {
         </button>
       </motion.form>
 
-      {status && (
+      {error && (
         <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-4 flex items-center gap-2 rounded-xl border border-lp-green/20 bg-lp-greensoft px-3.5 py-2.5"
+          className="mt-3 flex items-start gap-2 rounded-xl border border-lp-red/20 bg-lp-redsoft px-3.5 py-2.5"
         >
-          <CheckCircle2 size={15} className="text-lp-green shrink-0" strokeWidth={2} />
-          <p className="text-[13.5px] font-mono text-lp-green">{status}</p>
+          <AlertCircle size={15} className="text-lp-red shrink-0 mt-0.5" strokeWidth={2} />
+          <p className="text-[13.5px] text-lp-red leading-relaxed">{error}</p>
         </motion.div>
       )}
+
+      <div className="mt-12">
+        <RecentList limit={4} showEmpty={false} />
+      </div>
     </motion.div>
   )
 }
