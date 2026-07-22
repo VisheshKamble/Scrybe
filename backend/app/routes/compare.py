@@ -16,6 +16,8 @@ def compare(payload: CompareRequest):
 @router.get("/{job_id}/status")
 def compare_status(job_id: str):
     result = celery_app.AsyncResult(job_id)
-    if result.ready():
+    if result.state == "SUCCESS":
         return {"status": "done", "result": result.result}
+    if result.state == "FAILURE":
+        return {"status": "failed", "error": str(result.result)}
     return {"status": result.state.lower()}
