@@ -42,6 +42,12 @@ export async function compareVideos(youtubeUrls, focus) {
   return res.json()
 }
 
+export async function getCompareStatus(jobId) {
+  const res = await fetch(`${BASE_URL}/compare/${jobId}/status`)
+  if (!res.ok) throw new Error('Failed to fetch comparison status')
+  return res.json()
+}
+
 export function exportReportUrl(videoId, format) {
   return `${BASE_URL}/export/${videoId}/${format}`
 }
