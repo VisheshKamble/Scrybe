@@ -23,7 +23,7 @@ function hrefFor(entry) {
  * no list, and it's the difference between every run being throwaway and
  * a user having somewhere to come back to.
  */
-export default function RecentList({ limit, showEmpty = true, title = 'RECENT' }) {
+export default function RecentList({ limit, showEmpty = true, title = 'RECENT', layout = 'list' }) {
   const [entries, setEntries] = useState([])
 
   useEffect(() => {
@@ -42,8 +42,66 @@ export default function RecentList({ limit, showEmpty = true, title = 'RECENT' }
     return (
       <div>
         <p className="font-mono text-[10px] tracking-[0.14em] text-lp-faint mb-3">{title}</p>
-        <div className="rounded-xl border border-dashed border-lp-line px-4 py-6 text-center">
+        <div className="rounded-xl border border-dashed border-lp-line px-4 py-10 text-center bg-white/[0.015]">
           <p className="text-[13px] text-lp-muted">Nothing here yet &mdash; your analyses will show up as you run them.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (layout === 'grid') {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-mono text-[10px] tracking-[0.14em] text-lp-faint">{title}</p>
+          {limit && entries.length > limit && (
+            <Link to="/app/history" className="text-[12px] font-medium text-lp-violet hover:text-lp-ink transition-colors">
+              View all ({entries.length})
+            </Link>
+          )}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {visible.map((entry) => {
+            const meta = STATUS_META[entry.status] ?? STATUS_META.queued
+            const StatusIcon = meta.icon
+            const thumbId = entry.type === 'compare' ? entry.youtubeIds?.[0] : entry.youtubeId
+
+            return (
+              <div key={entry.id} className="group relative">
+                <Link
+                  to={hrefFor(entry)}
+                  className="block rounded-xl border border-lp-line bg-lp-card/80 overflow-hidden hover:border-lp-violet/40 hover:shadow-violet-glow transition-all duration-300"
+                >
+                  <div className="aspect-video bg-lp-bg border-b border-lp-line2 flex items-center justify-center overflow-hidden">
+                    {thumbId ? (
+                      <img src={youtubeThumbnail(thumbId)} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                    ) : (
+                      <GitCompare size={18} className="text-lp-faint" />
+                    )}
+                  </div>
+                  <div className="p-2.5">
+                    <p className="text-[12.5px] font-medium text-lp-ink truncate mb-1">
+                      {entry.type === 'compare'
+                        ? `Comparison — ${entry.youtubeUrls?.length ?? 0} videos`
+                        : entry.title || entry.youtubeId || 'Video analysis'}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 text-[10.5px] font-medium ${meta.className}`}>
+                      <StatusIcon size={11} className={meta.spin ? 'animate-spin' : ''} strokeWidth={2} />
+                      {meta.label}
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(entry.id)}
+                  aria-label="Remove from history"
+                  className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-lp-bg/80 backdrop-blur-sm text-lp-faint hover:text-lp-red transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            )
+          })}
         </div>
       </div>
     )
