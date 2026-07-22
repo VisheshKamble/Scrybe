@@ -1,8 +1,10 @@
 # Scrybe — Agentic Video Intelligence
 
-Upload a YouTube link (or a screenshot from one) and Scrybe watches it — transcript,
-on-screen visuals, chapters, fact-checked claims, and a timestamp-grounded Q&A chat —
-all through a multi-agent LangGraph pipeline running on Groq.
+Paste a YouTube link (or upload a screenshot from one) and Scrybe watches it for
+you — transcript, on-screen visuals, chapters, fact-checked claims, and a
+timestamp-grounded Q&A chat — all through a multi-agent LangGraph pipeline
+running on Groq, wrapped in a full React app with a video player, run history,
+and multi-video comparison.
 
 ## Architecture
 
@@ -10,17 +12,40 @@ Video/screenshot input → **Transcript agent** (captions or Whisper) +
 **Visual agent** (keyframes → vision model) → **Segmentation agent** (chapters) →
 **Synthesis agent** (fact-checks claims via Groq Compound's built-in web search,
 streams the summary) → FAISS vector index (timestamp-tagged) → React frontend
-(live streaming report, chat, multi-video comparison, PDF/markdown export).
+(live pipeline progress, video player wired to every timestamp, chat,
+multi-video comparison, local history, PDF/markdown export).
 
 ## Models (Groq)
 
-| Purpose                      | Model                  |
-|-------------------------------|------------------------|
-| Reasoning / synthesis / QA    | `openai/gpt-oss-120b`  |
-| Fast structured tasks (chapters) | `openai/gpt-oss-20b` |
-| Vision (keyframes/screenshots)| `qwen/qwen3.6-27b`     |
-| Speech-to-text fallback       | `whisper-large-v3-turbo` |
-| Fact-checking (built-in web search) | `groq/compound`  |
+| Purpose                             | Model                    |
+|--------------------------------------|--------------------------|
+| Reasoning / synthesis / QA          | `openai/gpt-oss-120b`    |
+| Fast structured tasks (chapters)    | `openai/gpt-oss-20b`     |
+| Vision (keyframes/screenshots)      | `qwen/qwen3.6-27b`       |
+| Speech-to-text fallback             | `whisper-large-v3-turbo` |
+| Fact-checking (built-in web search) | `groq/compound`          |
+
+## Frontend
+
+The marketing landing page lives at `/`; the actual tool lives under `/app`
+and shares the same visual language (palette, type scale, motion) so the two
+never feel like separate products.
+
+| Route                    | Page             | What it does |
+|---------------------------|------------------|---------------|
+| `/app`                    | Upload           | Paste a YouTube URL (with client-side validation) or pick one of two one-click example videos |
+| `/app/report/:jobId`      | Report           | Live pipeline progress → transcript, chapters, fact-checked claims, and a shared video player that every timestamp seeks |
+| `/app/chat/:videoId`      | Chat             | Timestamp-grounded Q&A against the video, with the same video player and a thread that persists per video |
+| `/app/compare`            | Compare          | Submit two videos and an optional focus query |
+| `/app/compare/:jobId`     | Compare Result   | Polls until done, then shows the synthesized comparison plus each video's own chapters/claims |
+| `/app/history`            | History          | Local, durable list of every video and comparison you've run, with a working link back in |
+
+Other notable pieces: a persistent "current video" breadcrumb in the app
+header once you're inside a report/chat, a real retry button on failed jobs,
+and a loading state on the PDF/markdown export buttons.
+
+See `AUDIT.md` for the full UI/UX audit this design is based on, including
+what was found and what was fixed.
 
 ## Running locally
 
@@ -30,10 +55,7 @@ docker compose up --build
 ```
 
 - Frontend: http://localhost:5173
-- Backend docs: http://localhost:8000/docs
-
-The frontend root (`/`) is the marketing landing page; the actual tool (upload,
-report, chat, compare) lives under `/app`.
+- Backend docs: http://localhost:8000/docs (routes are served under `/api`)
 
 ## Running without Docker
 
@@ -57,6 +79,9 @@ npm run dev
 - `transcript` and `visual` agents don't depend on each other; the graph runs
   them sequentially for simplicity, but they can be parallelized with a
   fan-out/fan-in edge in `app/agents/graph.py`.
+- History and per-video chat threads are stored in the browser
+  (`frontend/src/lib/storage.js`) — there's no server-side account system, so
+  clearing site data clears your history too.
 
 ## Long videos & the Groq 413 fix
 
@@ -152,3 +177,7 @@ Fixed on both ends:
   fetch behind the summary stream completing -- they're independent data
   that's already sitting in the report file the moment the job is done,
   and shouldn't be blocked by an unrelated stream.
+
+## License
+
+MIT — see `LICENSE`.
