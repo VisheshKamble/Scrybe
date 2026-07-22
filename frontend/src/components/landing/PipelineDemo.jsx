@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion'
-import { Download, Eye, FileText, Rows3, Sparkles } from 'lucide-react'
+import { Download, Eye, FileText, Radio, Rows3, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const AGENTS = [
@@ -21,12 +21,12 @@ const HOLD_MS = 1800
 
 function StatusDot({ state }) {
   if (state === 'done') {
-    return <span className="w-1.5 h-1.5 rounded-full bg-lp-green shrink-0" />
+    return <span className="w-1.5 h-1.5 rounded-full bg-lp-cyan shrink-0 shadow-[0_0_8px_rgba(34,231,208,0.8)]" />
   }
   if (state === 'active') {
-    return <span className="w-1.5 h-1.5 rounded-full bg-lp-blue shrink-0 animate-pulse-dot" />
+    return <span className="w-1.5 h-1.5 rounded-full bg-lp-violet shrink-0 animate-pulse-dot shadow-[0_0_8px_rgba(124,92,255,0.9)]" />
   }
-  return <span className="w-1.5 h-1.5 rounded-full bg-lp-line shrink-0" />
+  return <span className="w-1.5 h-1.5 rounded-full bg-lp-line2 shrink-0" />
 }
 
 export default function PipelineDemo() {
@@ -69,7 +69,7 @@ export default function PipelineDemo() {
       animate={
         reduceMotion
           ? { opacity: 1, y: 0, rotate: -1, scale: 1 }
-          : { opacity: 1, y: [0, -12, 0], rotate: -1.2, scale: 1 }
+          : { opacity: 1, y: [0, -10, 0], rotate: -1.4, scale: 1 }
       }
       transition={
         reduceMotion
@@ -83,27 +83,43 @@ export default function PipelineDemo() {
       }
       className="relative w-full max-w-[620px] mx-auto"
     >
-      <div className="absolute -inset-6 bg-gradient-to-tr from-lp-violet/20 via-lp-violet2/10 to-transparent blur-3xl -z-10" />
+      {/* halo: soft rotating conic glow behind the panel */}
+      <div className="absolute -inset-10 -z-10 opacity-70">
+        <div
+          className="w-full h-full animate-spin-slow blur-3xl"
+          style={{
+            background:
+              'conic-gradient(from 90deg, rgba(124,92,255,0.35), rgba(34,231,208,0.25), transparent 40%, rgba(124,92,255,0.35))',
+          }}
+        />
+      </div>
+      <div className="absolute -inset-6 bg-gradient-to-tr from-lp-violet/25 via-lp-cyan/10 to-transparent blur-3xl -z-10" />
 
-      <div className="rounded-2xl border border-lp-line bg-lp-card shadow-[0_30px_60px_-15px_rgba(20,10,40,0.18)] overflow-hidden">
+      <div className="relative rounded-[26px] border border-lp-line2 bg-lp-card/90 backdrop-blur-xl shadow-card-lg overflow-hidden">
+        {/* scanning beam — reinforces "watches", not just "listens" */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 overflow-hidden opacity-0 sm:opacity-100">
+          <div className="absolute inset-x-0 h-8 bg-gradient-to-b from-lp-cyan/25 via-lp-cyan/5 to-transparent animate-scanline" />
+        </div>
+
         {/* title bar */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-lp-line bg-lp-bg/60">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
-          <span className="mx-auto font-mono text-[11px] text-lp-faint tracking-wide">
+        <div className="relative flex items-center gap-2 px-4 py-3 border-b border-lp-line bg-white/[0.02]">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]/90" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]/90" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]/90" />
+          <span className="mx-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-lp-faint tracking-wide">
+            <Radio size={10} className="text-lp-cyan" />
             scrybe — agentic video intelligence
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.15fr]">
+        <div className="relative grid grid-cols-1 sm:grid-cols-[1fr_1.15fr]">
           {/* left: input + pipeline */}
           <div className="p-5 border-b sm:border-b-0 sm:border-r border-lp-line">
             <p className="font-mono text-[10px] tracking-[0.14em] text-lp-faint mb-2">VIDEO URL</p>
-            <div className="rounded-lg border border-lp-line bg-lp-bg px-3 py-2.5 mb-5">
+            <div className="rounded-lg border border-lp-line2 bg-black/30 px-3 py-2.5 mb-5">
               <span className="font-mono text-[12px] text-lp-muted">
                 youtube.com/watch?v=<span className="text-lp-ink">a1B2c…</span>
-                <span className="inline-block w-[6px] h-[13px] bg-lp-violet/70 align-middle ml-0.5 animate-pulse" />
+                <span className="inline-block w-[6px] h-[13px] bg-lp-cyan/80 align-middle ml-0.5 animate-pulse" />
               </span>
             </div>
 
@@ -131,13 +147,13 @@ export default function PipelineDemo() {
           {/* right: live stats + report preview */}
           <div className="p-5">
             <div className="flex flex-wrap gap-1.5 mb-4">
-              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-lp-violetsoft text-lp-violet">
+              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full border border-lp-violet/30 bg-lp-violet/10 text-lp-violet2">
                 {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')} elapsed
               </span>
-              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-lp-violetsoft text-lp-violet">
+              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full border border-lp-violet/30 bg-lp-violet/10 text-lp-violet2">
                 4 agents
               </span>
-              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-lp-violetsoft text-lp-violet">
+              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full border border-lp-cyan/30 bg-lp-cyan/10 text-lp-cyan">
                 timestamp-grounded
               </span>
             </div>
@@ -148,17 +164,21 @@ export default function PipelineDemo() {
                 return (
                   <div key={section.title}>
                     <div className="flex items-center gap-1.5 mb-1.5">
-                      <span className="w-[3px] h-3 rounded-full bg-lp-violet" />
+                      <span className="w-[3px] h-3 rounded-full bg-gradient-to-b from-lp-violet to-lp-cyan" />
                       <span className="text-[12.5px] font-semibold text-lp-ink">{section.title}</span>
                     </div>
                     <div className="space-y-1 pl-[9px]">
                       {section.lines.map((w, li) => (
                         <div key={li} className="h-[5px] rounded-full bg-lp-line overflow-hidden">
                           <motion.div
-                            className="h-full rounded-full bg-lp-line"
+                            className="h-full rounded-full"
                             initial={false}
                             animate={{ width: revealed ? `${w}%` : '0%' }}
-                            style={{ backgroundColor: revealed ? '#DCD3F7' : 'transparent' }}
+                            style={{
+                              backgroundImage: revealed
+                                ? 'linear-gradient(90deg, #7C5CFF, #22E7D0)'
+                                : 'none',
+                            }}
                             transition={{ duration: 0.5, delay: li * 0.08, ease: [0.16, 1, 0.3, 1] }}
                           />
                         </div>
@@ -173,8 +193,8 @@ export default function PipelineDemo() {
               <span
                 className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-full border transition-colors duration-500 ${
                   allDone
-                    ? 'border-lp-violet text-lp-violet'
-                    : 'border-lp-line text-lp-faint'
+                    ? 'border-lp-cyan/40 text-lp-cyan bg-lp-cyan/10'
+                    : 'border-lp-line2 text-lp-faint'
                 }`}
               >
                 <Download size={12} />
