@@ -1,9 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { MessageSquareText, Send } from 'lucide-react'
+import { ArrowLeft, MessageSquareText, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import TimestampCitation from '../components/TimestampCitation.jsx'
+import VideoPlayer from '../components/VideoPlayer.jsx'
 import { askQuestion } from '../lib/api.js'
+import { getChatMessages, getVideoMeta, saveChatMessages } from '../lib/storage.js'
 
 const SUGGESTIONS = ['Summarize the key takeaways', 'What happens around the halfway point?', 'Any claims worth double-checking?']
 
@@ -24,13 +26,23 @@ function TypingBubble() {
 export default function Chat() {
   const { videoId } = useParams()
   const [question, setQuestion] = useState('')
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => getChatMessages(videoId))
   const [asking, setAsking] = useState(false)
+  const [seekSeconds, setSeekSeconds] = useState(0)
   const scrollRef = useRef(null)
+  const playerRef = useRef(null)
+
+  const videoMeta = getVideoMeta(videoId)
+  const youtubeId = videoMeta?.youtubeId
+  const jobId = videoMeta?.jobId
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, asking])
+
+  useEffect(() => {
+    saveChatMessages(videoId, messages)
+  }, [videoId, messages])
 
   async function handleAsk(e) {
     e.preventDefault()
@@ -45,20 +57,45 @@ export default function Chat() {
         ...prev,
         { role: 'assistant', text: res.answer, timestamp: res.timestamp_seconds },
       ])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', text: "Couldn't reach the video's index just now — try asking again in a moment." },
+      ])
     } finally {
       setAsking(false)
     }
   }
 
+  function handleSeek(seconds) {
+    setSeekSeconds(seconds)
+    playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
+        {jobId && (
+          <Link
+            to={`/app/report/${jobId}`}
+            className="inline-flex items-center gap-1 text-[12.5px] font-medium text-lp-muted hover:text-lp-ink transition-colors mb-3"
+          >
+            <ArrowLeft size={13} />
+            Back to report
+          </Link>
+        )}
         <div className="flex items-center gap-1.5 mb-2">
           <span className="w-[3px] h-3.5 rounded-full bg-lp-violet" />
           <h1 className="text-xl font-semibold tracking-tight text-lp-ink">Ask about this video</h1>
         </div>
         <p className="font-mono text-[11.5px] text-lp-faint">Grounded in the transcript &amp; visuals via FAISS &mdash; every answer cites a timestamp.</p>
       </div>
+
+      {youtubeId && (
+        <div ref={playerRef} className="mb-5">
+          <VideoPlayer youtubeId={youtubeId} seekSeconds={seekSeconds} />
+        </div>
+      )}
 
       <div
         ref={scrollRef}
@@ -107,7 +144,7 @@ export default function Chat() {
                 {m.text}
                 {m.timestamp != null && (
                   <div className="mt-2">
-                    <TimestampCitation seconds={m.timestamp} />
+                    <TimestampCitation seconds={m.timestamp} onClick={youtubeId ? handleSeek : undefined} />
                   </div>
                 )}
               </div>
