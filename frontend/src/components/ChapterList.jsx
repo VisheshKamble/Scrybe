@@ -18,7 +18,7 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
 }
 
-export default function ChapterList({ chapters = [], claims = [] }) {
+export default function ChapterList({ chapters = [], claims = [], onSeek, activeSeconds }) {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <section>
@@ -34,28 +34,43 @@ export default function ChapterList({ chapters = [], claims = [] }) {
           viewport={{ once: true, amount: 0.1 }}
           className="space-y-2.5"
         >
-          {chapters.map((c, i) => (
-            <motion.li
-              key={i}
-              variants={item}
-              className="group rounded-xl border border-lp-line bg-lp-card p-3.5 hover:border-lp-violet/40 transition-colors duration-200"
-            >
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-lp-violetsoft text-lp-violet text-[10.5px] font-mono font-semibold flex items-center justify-center">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2 mb-1">
-                    <span className="font-medium text-[14px] text-lp-ink">{c.title}</span>
-                    <span className="font-mono text-[11px] tabular-nums text-lp-faint shrink-0">
+          {chapters.map((c, i) => {
+            const active =
+              activeSeconds != null && activeSeconds >= c.start_seconds && activeSeconds < c.end_seconds
+            return (
+              <motion.li
+                key={i}
+                variants={item}
+                onClick={() => onSeek?.(c.start_seconds)}
+                className={`group rounded-xl border p-3.5 transition-colors duration-200 ${
+                  onSeek ? 'cursor-pointer' : ''
+                } ${
+                  active
+                    ? 'border-lp-violet/50 bg-lp-violetsoft/40'
+                    : 'border-lp-line bg-lp-card hover:border-lp-violet/40'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-lp-violetsoft text-lp-violet text-[10.5px] font-mono font-semibold flex items-center justify-center">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2 mb-1">
+                      <span className="font-medium text-[14px] text-lp-ink">{c.title}</span>
+                      <TimestampCitation
+                        seconds={c.start_seconds}
+                        onClick={onSeek ? () => onSeek(c.start_seconds) : undefined}
+                      />
+                    </div>
+                    <p className="text-lp-muted text-[13px] leading-relaxed">{c.summary}</p>
+                    <p className="font-mono text-[10.5px] tabular-nums text-lp-faint mt-1.5">
                       {formatTime(c.start_seconds)}&ndash;{formatTime(c.end_seconds)}
-                    </span>
+                    </p>
                   </div>
-                  <p className="text-lp-muted text-[13px] leading-relaxed">{c.summary}</p>
                 </div>
-              </div>
-            </motion.li>
-          ))}
+              </motion.li>
+            )
+          })}
         </motion.ol>
       </section>
 
@@ -97,7 +112,12 @@ export default function ChapterList({ chapters = [], claims = [] }) {
                     >
                       {c.verified ? 'Verified' : 'Unverified'}
                     </span>
-                    {c.timestamp_seconds != null && <TimestampCitation seconds={c.timestamp_seconds} />}
+                    {c.timestamp_seconds != null && (
+                      <TimestampCitation
+                        seconds={c.timestamp_seconds}
+                        onClick={onSeek ? () => onSeek(c.timestamp_seconds) : undefined}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
