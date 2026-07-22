@@ -4,22 +4,24 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
-  background-color: #fafaf8;
+  background-color: #050507;
+  color: #F6F5F2;
+  overflow-x: hidden;
 }
 
 ::selection {
-  background-color: #6d28d9;
+  background-color: #7C5CFF;
   color: #ffffff;
 }
 
-/* Slim, quiet scrollbar so long chat/report panels don't feel like
-   they belong to a different, older piece of software. */
+/* Slim, quiet scrollbar tuned for a dark stage. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #d8d5df transparent;
+  scrollbar-color: #2C2C3A transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
@@ -29,11 +31,11 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: #d8d5df;
+  background-color: #2C2C3A;
   border-radius: 9999px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background-color: #b9b4c4;
+  background-color: #43435a;
 }
 
 @layer utilities {
@@ -45,12 +47,33 @@ body {
   .skeleton {
     background-image: linear-gradient(
       100deg,
-      #eeecf3 30%,
-      #f6f4fa 45%,
-      #f6f4fa 55%,
-      #eeecf3 70%
+      #14141c 30%,
+      #1c1c28 45%,
+      #1c1c28 55%,
+      #14141c 70%
     );
     background-size: 200% 100%;
+  }
+
+  /* Gradient text: violet -> cyan, the one recurring accent move. */
+  .text-gradient {
+    background-image: linear-gradient(95deg, #7C5CFF 0%, #B69CFF 45%, #22E7D0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Fine 1px engineering grid, used sparingly behind hero-scale moments. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
   }
 }
 
