@@ -9,7 +9,9 @@ import Stack from '../components/landing/Stack.jsx'
 
 export default function Landing() {
   return (
-    <div className="bg-lp-bg text-lp-ink min-h-screen [background-image:radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_45%)]">
+    <div className="relative bg-lp-bg text-lp-ink min-h-screen">
+      {/* fine film-grain wash across the whole stage, kept very quiet */}
+      <div className="pointer-events-none fixed inset-0 z-[1] bg-grain opacity-[0.035] mix-blend-overlay" />
       <Navbar />
       <Hero />
       <Features />
