@@ -4,7 +4,7 @@ from pathlib import Path
 import faiss
 
 from app.config import settings
-from app.vectorstore.embeddings import embed_texts
+from app.vectorstore.embeddings import embed_texts, embedding_dimension
 
 STORE_DIR = Path(settings.vector_store_path)
 STORE_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,9 +25,20 @@ class VideoIndex:
 
     def build(self, chunks: list[dict]) -> None:
         self.chunks = chunks
-        vectors = embed_texts([c["text"] for c in chunks]).astype("float32")
-        self.index = faiss.IndexFlatIP(vectors.shape[1])
-        self.index.add(vectors)
+        if not chunks:
+            # A completely silent/blank video (no transcript segments and
+            # no visual descriptions) is rare but not impossible -- without
+            # this branch, embed_texts([]) hands a 1-D empty array to
+            # `.shape[1]` below and crashes the whole pipeline over an
+            # edge case that should just mean "chat has nothing to answer
+            # from," not "processing failed." An empty flat index (sized
+            # from the model's own dimension, not a chunk that doesn't
+            # exist) still round-trips correctly through write/read/search.
+            self.index = faiss.IndexFlatIP(embedding_dimension())
+        else:
+            vectors = embed_texts([c["text"] for c in chunks]).astype("float32")
+            self.index = faiss.IndexFlatIP(vectors.shape[1])
+            self.index.add(vectors)
         faiss.write_index(self.index, str(self.index_path))
         self.meta_path.write_text(json.dumps(chunks))
 
@@ -38,6 +49,8 @@ class VideoIndex:
     def search(self, query: str, k: int = 5) -> list[dict]:
         if self.index is None:
             self.load()
+        if self.index.ntotal == 0:
+            return []
         query_vec = embed_texts([query]).astype("float32")
         _scores, ids = self.index.search(query_vec, k)
         return [self.chunks[i] for i in ids[0] if i != -1]
