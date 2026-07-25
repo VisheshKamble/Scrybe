@@ -13,6 +13,24 @@ class Settings(BaseSettings):
     max_keyframes_per_video: int = 24
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
+    # Comma-separated list of origins allowed to call the API (CORS). The
+    # default covers the Vite dev server used by docker-compose; override
+    # via the CORS_ORIGINS env var (e.g. "https://scrybe.example.com,https://www.scrybe.example.com")
+    # for any deployment that isn't localhost:5173.
+    cors_origins: str = "http://localhost:5173"
+
+    # How long a finished job's status/result stays queryable from Redis
+    # (celery result backend). Kept generous rather than Celery's 1-hour
+    # default so a job that finished while nobody was watching (tab closed,
+    # laptop slept) is still resolvable from History much later -- the
+    # report itself is durable on disk regardless, but the job_id -> status
+    # lookup that Report/CompareResult poll on is only backed by this.
+    celery_result_expires_seconds: int = 24 * 60 * 60
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
     # Groq model IDs kept in one place -- a future Groq deprecation
     # only needs a change here, not a hunt through the codebase.
     model_reasoning: str = "openai/gpt-oss-120b"
