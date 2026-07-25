@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 from app.agents.graph import video_graph
@@ -11,6 +12,19 @@ from app.vectorstore.index import VideoIndex
 
 REPORT_DIR = Path("data/reports")
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _remove_quietly(path: str | None) -> None:
+    """Best-effort delete -- cleanup failing is never worth losing a
+    report over, so this only ever logs to stdout (visible in the worker's
+    own logs) rather than raising.
+    """
+    if not path:
+        return
+    try:
+        os.remove(path)
+    except OSError as exc:
+        print(f"process_video_task: couldn't clean up '{path}': {exc}")
 
 
 @celery_app.task(bind=True)
@@ -35,6 +49,14 @@ def process_video_task(self, youtube_url: str) -> dict:
     if not download.get("caption_path"):
         audio_path = extract_audio(download["video_path"], video_id)
 
+    # The downloaded video file itself is only ever an input to the two
+    # extraction calls above -- nothing downstream reads it (the frontend
+    # plays the video via a YouTube iframe embed, not this local copy),
+    # and it's by far the largest file this pipeline writes to disk.
+    # Without this, `data/videos` grows by one full video per run,
+    # forever, for a file nothing will ever read again.
+    _remove_quietly(download["video_path"])
+
     state = {
         "video_id": video_id,
         "video_path": download["video_path"],
@@ -44,6 +66,11 @@ def process_video_task(self, youtube_url: str) -> dict:
     }
 
     result = video_graph.invoke(state)
+
+    # Same reasoning as the video file above, just one step later: the
+    # extracted audio track is only read inside run_transcript_agent
+    # (during video_graph.invoke, just above), never again after.
+    _remove_quietly(audio_path)
 
     chunks = [
         {"text": s["text"], "timestamp_seconds": s["start"], "source": "transcript"}
