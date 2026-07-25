@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from redis import asyncio as aioredis
 from sse_starlette.sse import EventSourceResponse
 
 from app.config import settings
+from app.validation import is_valid_video_id
 
 router = APIRouter(prefix="/stream", tags=["stream"])
 REPORT_DIR = Path("data/reports")
@@ -33,6 +34,10 @@ async def stream_report(video_id: str):
     is still processing (report not on disk yet) still gets the real
     live token-by-token stream below.
     """
+    # See app/validation.py -- video_id feeds a path and a Redis channel
+    # name below.
+    if not is_valid_video_id(video_id):
+        raise HTTPException(404, "Unknown video.")
     report_path = REPORT_DIR / f"{video_id}.json"
 
     async def event_generator():
