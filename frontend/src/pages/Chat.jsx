@@ -93,7 +93,7 @@ export default function Chat() {
 
       {youtubeId && (
         <div ref={playerRef} className="mb-5">
-          <VideoPlayer youtubeId={youtubeId} seekSeconds={seekSeconds} />
+          <VideoPlayer youtubeId={youtubeId} seekSeconds={seekSeconds} autoplayOnSeek />
         </div>
       )}
 
@@ -167,7 +167,8 @@ export default function Chat() {
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="What does the chart at 4:32 show?"
-          className="flex-1 bg-transparent px-3 py-2.5 text-[14px] text-lp-ink placeholder:text-lp-faint outline-none"
+          disabled={asking}
+          className="flex-1 bg-transparent px-3 py-2.5 text-[14px] text-lp-ink placeholder:text-lp-faint outline-none disabled:opacity-50"
         />
         <button
           type="submit"
