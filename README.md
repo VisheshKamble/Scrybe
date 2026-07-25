@@ -1,14 +1,13 @@
 # Scrybe — Agentic Video Intelligence
 
-Paste a YouTube link (or upload a screenshot from one) and Scrybe watches it for
-you — transcript, on-screen visuals, chapters, fact-checked claims, and a
-timestamp-grounded Q&A chat — all through a multi-agent LangGraph pipeline
-running on Groq, wrapped in a full React app with a video player, run history,
-and multi-video comparison.
+Paste a YouTube link and Scrybe watches it for you — transcript, on-screen
+visuals, chapters, fact-checked claims, and a timestamp-grounded Q&A chat —
+all through a multi-agent LangGraph pipeline running on Groq, wrapped in a
+full React app with a video player, run history, and multi-video comparison.
 
 ## Architecture
 
-Video/screenshot input → **Transcript agent** (captions or Whisper) +
+Video input → **Transcript agent** (captions or Whisper) +
 **Visual agent** (keyframes → vision model) → **Segmentation agent** (chapters) →
 **Synthesis agent** (fact-checks claims via Groq Compound's built-in web search,
 streams the summary) → FAISS vector index (timestamp-tagged) → React frontend
@@ -76,6 +75,11 @@ npm run dev
 
 - Scope the public demo to short or your own uploaded clips — YouTube's terms
   restrict automated downloading of arbitrary public videos at scale.
+- `POST /api/videos/screenshot` exists as a backend stub (saves an uploaded
+  frame to disk) but isn't wired to anything yet — there's no frontend UI for
+  it, and no visual-similarity search matching it against a video's keyframes.
+  Treat it as scaffolding for a future "ask about this moment from a
+  screenshot" feature, not a finished one.
 - `transcript` and `visual` agents don't depend on each other; the graph runs
   them sequentially for simplicity, but they can be parallelized with a
   fan-out/fan-in edge in `app/agents/graph.py`.
