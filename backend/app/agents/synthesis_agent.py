@@ -84,6 +84,14 @@ def run_synthesis_agent(state: dict) -> dict:
         state.setdefault("errors", []).append(f"synthesis_agent.extract_claims: {exc}")
         claims = []
 
+    # response_format={"type": "json_object"} guarantees valid JSON, not
+    # that every object in "claims" actually has the fields asked for --
+    # a model occasionally omits one under json mode. Dropping those here
+    # (rather than indexing claim["text"] directly below) means one
+    # malformed claim can't crash the task after the transcript, chapters,
+    # and every other claim already succeeded.
+    claims = [c for c in claims if c.get("text")]
+
     for i, claim in enumerate(claims):
         # A small gap between compound calls, not just backoff after the
         # fact -- spreads token usage out instead of bursting it, which is
