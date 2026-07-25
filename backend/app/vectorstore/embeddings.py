@@ -19,3 +19,7 @@ def _get_model() -> SentenceTransformer:
 
 def embed_texts(texts: list[str]):
     return _get_model().encode(texts, normalize_embeddings=True)
+
+
+def embedding_dimension() -> int:
+    return _get_model().get_sentence_embedding_dimension()
