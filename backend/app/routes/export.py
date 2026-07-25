@@ -1,9 +1,12 @@
+import html
 import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from weasyprint import HTML
+
+from app.validation import is_valid_video_id
 
 router = APIRouter(prefix="/export", tags=["export"])
 REPORT_DIR = Path("data/reports")
@@ -12,6 +15,9 @@ EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _load_report(video_id: str) -> dict:
+    # See app/validation.py -- video_id feeds straight into a path below.
+    if not is_valid_video_id(video_id):
+        raise HTTPException(404, "Report not found -- has this video finished processing?")
     path = REPORT_DIR / f"{video_id}.json"
     if not path.exists():
         raise HTTPException(404, "Report not found -- has this video finished processing?")
@@ -19,20 +25,29 @@ def _load_report(video_id: str) -> dict:
 
 
 def _report_to_html(report: dict) -> str:
+    # report['summary'], chapter titles/summaries, and claim text are all
+    # either LLM output derived from the video's transcript or the
+    # transcript's own words -- for the kind of coding/tech-tutorial
+    # content this app is built around, a claim or chapter title
+    # containing something like "the <div> tag" or "using <script>" is a
+    # realistic, not hypothetical, occurrence. Without escaping, that text
+    # gets parsed as actual markup instead of displayed literally,
+    # corrupting the rendered PDF around it.
+    e = html.escape
     chapters_html = "".join(
-        f"<li><strong>{c['title']}</strong> "
+        f"<li><strong>{e(c['title'])}</strong> "
         f"({c['start_seconds']:.0f}s\u2013{c['end_seconds']:.0f}s)"
-        f"<p>{c['summary']}</p></li>"
+        f"<p>{e(c['summary'])}</p></li>"
         for c in report["chapters"]
     )
     claims_html = "".join(
-        f"<li>{c['text']} \u2014 <em>{'verified' if c['verified'] else 'unverified'}</em></li>"
+        f"<li>{e(c['text'])} \u2014 <em>{'verified' if c['verified'] else 'unverified'}</em></li>"
         for c in report["claims"]
     )
     return (
         f"<html><body>"
-        f"<h1>Video report \u2014 {report['video_id']}</h1>"
-        f"<h2>Summary</h2><p>{report['summary']}</p>"
+        f"<h1>Video report \u2014 {e(report['video_id'])}</h1>"
+        f"<h2>Summary</h2><p>{e(report['summary'])}</p>"
         f"<h2>Chapters</h2><ul>{chapters_html}</ul>"
         f"<h2>Claims</h2><ul>{claims_html}</ul>"
         f"</body></html>"
