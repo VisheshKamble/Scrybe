@@ -10,6 +10,18 @@ def answer_question(video_id: str, question: str) -> dict:
     index = VideoIndex(video_id)
     matches = index.search(question, k=5)
 
+    if not matches:
+        # Nothing indexed for this video (e.g. a silent/blank source with
+        # no transcript and no describable frames) -- say so plainly
+        # rather than prompting the model with an empty CONTEXT block,
+        # which invites it to answer from general knowledge instead of
+        # the video.
+        return {
+            "answer": "There's nothing indexed for this video to answer from -- it may have had no speech and no describable visuals.",
+            "timestamp_seconds": None,
+            "source_snippets": [],
+        }
+
     context = "\n".join(
         f"[{m['timestamp_seconds']:.0f}s, {m['source']}] {m['text']}" for m in matches
     )
