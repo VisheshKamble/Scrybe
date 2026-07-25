@@ -64,6 +64,20 @@ export default function Report() {
   const { text, done } = useSSE(videoId)
   const playerRef = useRef(null)
 
+  // useSSE's `text` is a nice live-typing effect, but it has one path to
+  // failure: the EventSource in useSSE.js closes permanently on any error
+  // (a deliberate choice there -- letting the browser auto-reconnect would
+  // silently duplicate every token already received, since this stream
+  // has no resumption cursor). If that connection drops before its "done"
+  // event for any reason (a proxy hiccup, a backgrounded tab, anything),
+  // `text` is stuck at a partial value forever with nothing to recover it.
+  // `report.summary` comes from an independent, ordinary REST call
+  // (getReport, below) that isn't subject to any of that -- once it's
+  // loaded, it's the complete, correct summary regardless of what
+  // happened to the stream, so it takes over as the source of truth.
+  const displaySummary = report?.summary || text
+  const summaryStillStreaming = !report && !done
+
   const jobMeta = getJobMeta(jobId)
   const startedAtRef = useRef(jobMeta?.startedAt ?? Date.now())
   if (!jobMeta?.startedAt) {
@@ -113,7 +127,7 @@ export default function Report() {
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(displaySummary)
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
@@ -136,7 +150,7 @@ export default function Report() {
     <div className="space-y-8 max-w-3xl mx-auto">
       {youtubeId && (
         <div ref={playerRef}>
-          <VideoPlayer youtubeId={youtubeId} seekSeconds={seekSeconds} />
+          <VideoPlayer youtubeId={youtubeId} seekSeconds={seekSeconds} autoplayOnSeek />
         </div>
       )}
 
@@ -146,7 +160,7 @@ export default function Report() {
             <span className="w-[3px] h-3.5 rounded-full bg-lp-violet" />
             <h2 className="text-[13px] font-semibold tracking-wide text-lp-ink">Summary</h2>
           </div>
-          {text && (
+          {displaySummary && (
             <button
               type="button"
               onClick={handleCopy}
@@ -158,8 +172,8 @@ export default function Report() {
           )}
         </div>
         <p className="leading-relaxed text-[15px] text-lp-ink/90 whitespace-pre-wrap">
-          {text}
-          {!done && <span className="inline-block w-[2px] h-[1em] bg-lp-violet ml-0.5 align-middle animate-caret-blink" />}
+          {displaySummary}
+          {summaryStillStreaming && <span className="inline-block w-[2px] h-[1em] bg-lp-violet ml-0.5 align-middle animate-caret-blink" />}
         </p>
       </section>
 
