@@ -2,6 +2,8 @@ import subprocess
 import uuid
 from pathlib import Path
 
+from app.validation import is_valid_youtube_url
+
 DOWNLOAD_DIR = Path("data/videos")
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -11,6 +13,14 @@ def download_video(youtube_url: str) -> dict:
     auto-generated captions if they exist. Caption absence is what triggers
     the Whisper fallback in the transcript agent.
     """
+    # youtube_url ultimately reaches subprocess.run as a positional arg to
+    # yt-dlp -- validating the shape here (rather than trusting the
+    # frontend's own check in lib/youtube.js, which a direct API call
+    # bypasses entirely) keeps a non-YouTube URL, or a string crafted to
+    # look like a CLI flag, from ever reaching that call.
+    if not is_valid_youtube_url(youtube_url):
+        raise ValueError(f"'{youtube_url}' doesn't look like a YouTube video URL.")
+
     video_id = str(uuid.uuid4())[:8]
     out_template = str(DOWNLOAD_DIR / f"{video_id}.%(ext)s")
 
@@ -30,6 +40,11 @@ def download_video(youtube_url: str) -> dict:
             "-f", "bv*[height<=720]+ba/b[height<=720]/best",
             "--merge-output-format", "mp4",
             "-o", out_template,
+            # "--" tells yt-dlp's own arg parser that nothing after this
+            # point is an option, only the URL -- belt-and-suspenders on
+            # top of is_valid_youtube_url() above, in case validation is
+            # ever loosened later without this line being revisited too.
+            "--",
             youtube_url,
         ],
         check=True,
@@ -51,6 +66,7 @@ def download_video(youtube_url: str) -> dict:
             "--write-auto-sub", "--sub-lang", "en",
             "--convert-subs", "srt",
             "-o", out_template,
+            "--",
             youtube_url,
         ],
         check=False,
