@@ -1,6 +1,6 @@
 # Scrybe
 
-**Agentic video intelligence: a multi-agent AI pipeline that watches a YouTube video and produces a transcript, chapter breakdown, fact-checked claims, and a timestamp-grounded chat interface.**
+**Agentic video intelligence: a multi-agent AI pipeline that watches a YouTube video and produces a transcript, chapter breakdown, fact-checked claims, and a timestamp-grounded chat interface**
 
 Built as a full-stack system end to end: a LangGraph multi-agent backend, a Celery/Redis job pipeline, a FAISS vector index, and a React frontend, all designed around the practical failure modes of running LLM pipelines against arbitrary, unpredictable video content (variable length, missing captions, rate limits, model output that doesn't always follow the schema it was asked for).
 
