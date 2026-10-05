@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-celery -A app.celery_app worker --loglevel=info --concurrency=2 &
+celery -A app.celery_app worker --loglevel=info --pool=solo --concurrency=1 &
 worker_pid=$!
 
 trap 'kill "$worker_pid" 2>/dev/null || true' TERM INT
