@@ -231,7 +231,7 @@ This starts four services: Redis, the FastAPI backend, the Celery worker (which 
 
 ### Deploying to Render and Vercel
 
-The included `render.yaml` creates one Render web service and one Redis instance. The web service runs both Uvicorn and the Celery worker so they share the current `/app/data` filesystem; using separate Render services with the current code would isolate reports, videos, keyframes, and vector indexes. Set `GROQ_API_KEY` and `CORS_ORIGINS` when Render prompts for secret values. `CORS_ORIGINS` must be the exact Vercel origin, for example `https://scrybe.vercel.app`.
+The included `render.yaml` creates one Render web service. For a free deployment, use a free external Redis provider such as Upstash and set its connection string as `REDIS_URL`; do not add a paid Render database. The web service runs both Uvicorn and the Celery worker so they share the current `/app/data` filesystem. Set `GROQ_API_KEY`, `REDIS_URL`, and `CORS_ORIGINS` when Render prompts for secret values. `CORS_ORIGINS` must be the exact Vercel origin, for example `https://scrybe.vercel.app`.
 
 The backend stores downloaded videos, reports, keyframes, and vector indexes on local disk. Add a persistent Render disk mounted at `/app/data` if processed data must survive redeploys. For a larger production deployment, move those artifacts to shared object storage before splitting the worker into its own service.
 
