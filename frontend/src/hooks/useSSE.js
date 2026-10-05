@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { BASE_URL } from '../lib/api'
 
 export function useSSE(videoId) {
   const [text, setText] = useState('')
@@ -10,7 +11,7 @@ export function useSSE(videoId) {
     setText('')
     setDone(false)
 
-    const source = new EventSource(`/api/stream/${videoId}`)
+    const source = new EventSource(`${BASE_URL}/stream/${videoId}`)
     sourceRef.current = source
 
     source.addEventListener('token', (event) => {

@@ -1,4 +1,4 @@
-const BASE_URL = '/api'
+export const BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
 
 // FastAPI's HTTPException responses carry the actual reason in a `detail`
 // field (e.g. "That doesn't look like a YouTube video URL." from a 400, or

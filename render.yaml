@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: scrybe-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: sh -c "celery -A app.celery_app worker --loglevel=info --concurrency=2 & exec uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: REDIS_URL
+        fromDatabase:
+          name: scrybe-redis
+          property: connectionString
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: redis
+    name: scrybe-redis
+    plan: free
+    ipAllowList: []

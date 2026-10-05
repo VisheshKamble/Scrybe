@@ -227,7 +227,35 @@ docker compose up --build
 - Frontend: `http://localhost:5173`
 - Backend API docs: `http://localhost:8000/docs`
 
-This starts four services: Redis, the FastAPI backend, the Celery worker (which does the actual video processing), and the Vite frontend. The first build takes a few minutes, since the backend image pre-downloads its embedding model at build time.
+This starts four services: Redis, the FastAPI backend, the Celery worker (which does the actual video processing), and the frontend's production Nginx image. The first build takes a few minutes, since the backend image pre-downloads its embedding model at build time.
+
+### Deploying to Render and Vercel
+
+The included `render.yaml` creates one Render web service and one Redis instance. The web service runs both Uvicorn and the Celery worker so they share the current `/app/data` filesystem; using separate Render services with the current code would isolate reports, videos, keyframes, and vector indexes. Set `GROQ_API_KEY` and `CORS_ORIGINS` when Render prompts for secret values. `CORS_ORIGINS` must be the exact Vercel origin, for example `https://scrybe.vercel.app`.
+
+The backend stores downloaded videos, reports, keyframes, and vector indexes on local disk. Add a persistent Render disk mounted at `/app/data` if processed data must survive redeploys. For a larger production deployment, move those artifacts to shared object storage before splitting the worker into its own service.
+
+Deploy `frontend` as a Vercel project with the framework preset `Vite`. Set this build environment variable in Vercel:
+
+```text
+VITE_API_URL=https://your-render-api.onrender.com/api
+```
+
+The included `vercel.json` preserves React Router routes on refresh. Redeploy after changing `VITE_API_URL`, because Vite embeds it into the static build. Do not set it to the Vercel frontend URL.
+
+### Deploying the frontend with Docker
+
+The frontend image is a production build served by Nginx and listens on port 80 inside the container. The included Compose file maps it to `http://localhost:5173` and proxies `/api` to the backend.
+
+For a separately hosted Docker frontend and API, provide the API base URL at build time:
+
+```bash
+cd frontend
+docker build --build-arg VITE_API_URL=https://api.example.com/api -t scrybe-frontend .
+docker run --rm -p 8080:80 scrybe-frontend
+```
+
+Set the backend's `CORS_ORIGINS` to the deployed frontend origin, for example `https://app.example.com`.
 
 ### Running without Docker
 
@@ -280,7 +308,7 @@ Documented deliberately rather than left for someone else to discover:
 
 - `POST /api/videos/screenshot` exists as a backend stub (it saves an uploaded frame to disk) but is not wired to anything — there is no frontend UI for it, and no visual-similarity search matching it against a video's keyframes. It is scaffolding for a future "ask about this moment from a screenshot" feature, not a finished one.
 - Multi-video comparison dispatches one background job per video and combines the results; if any single video in the batch fails (age-restricted, private, region-locked), the entire comparison fails rather than reporting a partial result with the specific video identified.
-- `docker-compose.yml` runs the frontend via the Vite development server end to end, not a production build behind a reverse proxy. This is intentional for local use and demos, not a deployment configuration.
+- The frontend image is production-ready, but it assumes the backend is reachable as `backend:8000` for same-origin Docker Compose deployments. Set `VITE_API_URL` at build time when the API is hosted elsewhere.
 - History and per-video chat threads are stored in the browser's localStorage. There is no backend account system, so clearing site data clears history too.
 
 ## License
