@@ -28,7 +28,8 @@ def extract_claims(transcript: str) -> list[dict]:
         response_format={"type": "json_object"},
     )
     parsed = json.loads(response.choices[0].message.content)
-    return parsed.get("claims", [])
+    claims = parsed.get("claims", []) if isinstance(parsed, dict) else []
+    return claims if isinstance(claims, list) else []
 
 
 def fact_check_claim(claim_text: str) -> dict:
@@ -90,7 +91,7 @@ def run_synthesis_agent(state: dict) -> dict:
     # (rather than indexing claim["text"] directly below) means one
     # malformed claim can't crash the task after the transcript, chapters,
     # and every other claim already succeeded.
-    claims = [c for c in claims if c.get("text")]
+    claims = [c for c in claims if isinstance(c, dict) and c.get("text")]
 
     for i, claim in enumerate(claims):
         # A small gap between compound calls, not just backoff after the

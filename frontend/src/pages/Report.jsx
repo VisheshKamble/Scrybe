@@ -2,57 +2,52 @@ import { motion } from 'framer-motion'
 import { Check, Copy, MessageSquareText, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import ChapterList from '../components/ChapterList.jsx'
+import { ChapterPanel, ClaimPanel, TimelineStrip } from '../components/ChapterList.jsx'
 import ExportButton from '../components/ExportButton.jsx'
 import PipelineProgress from '../components/PipelineProgress.jsx'
 import VideoPlayer from '../components/VideoPlayer.jsx'
+import { PageBanner, btn } from '../components/ui.jsx'
 import { useSSE } from '../hooks/useSSE.js'
 import { getJobStatus, getReport } from '../lib/api.js'
 import { getJobMeta, saveJobMeta, saveVideoMeta, upsertHistoryEntry } from '../lib/storage.js'
+import { youtubeThumbnail } from '../lib/youtube.js'
 
-function ProcessingState({ status, startedAt }) {
-  const failed = status === 'failed'
-
-  if (failed) {
+function ProcessingState({ status, startedAt, youtubeId }) {
+  if (status === 'failed') {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-xl mx-auto text-center py-16"
-      >
-        <div className="mx-auto mb-6 w-14 h-14 rounded-2xl border border-lp-red/20 bg-lp-redsoft flex items-center justify-center">
-          <XCircle size={22} className="text-lp-red" strokeWidth={2} />
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-lg mx-auto text-center py-12">
+        <div className="mx-auto mb-6 w-14 h-14 rounded-2xl bg-bad-soft flex items-center justify-center">
+          <XCircle size={24} className="text-bad" strokeWidth={2.3} />
         </div>
-        <h1 className="text-xl font-semibold tracking-tight text-lp-ink mb-2">Something went wrong</h1>
-        <p className="text-lp-muted text-[14.5px] leading-relaxed mb-8">
-          The pipeline hit an error partway through. This can happen with age-restricted, private,
-          or region-locked videos &mdash; try a different link, or submit this one again.
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em] text-ink mb-2">This video didn’t make it through</h1>
+        <p className="text-mute text-[15.5px] leading-relaxed mb-8">
+          The pipeline stopped partway. Age-restricted, private and region-locked videos often cause this. Try another link, or submit this one again.
         </p>
-        <Link
-          to="/app"
-          className="inline-flex items-center gap-1.5 bg-lp-ink text-white text-[14px] font-medium px-5 py-2.5 rounded-full hover:bg-lp-violet transition-colors duration-300"
-        >
-          Try again
-        </Link>
+        <Link to="/app" className={btn.primary}>Try another video</Link>
       </motion.div>
     )
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-xl mx-auto text-center py-16"
-    >
-      <h1 className="text-xl font-semibold tracking-tight text-lp-ink mb-2">Processing your video</h1>
-      <p className="text-lp-muted text-[14.5px] leading-relaxed mb-8">
-        This runs in the background &mdash; feel free to leave this tab open, or come back to it
-        from your history later.
-      </p>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto py-6">
+      {youtubeId && (
+        <div className="relative rounded-[22px] overflow-hidden bg-ink mb-5 aspect-[16/7] border-2 border-ink shadow-pop">
+          <img src={youtubeThumbnail(youtubeId)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+          <div className="absolute inset-0 bg-gradient-to-t from-ink/70 to-transparent" />
+        </div>
+      )}
+      <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em] text-ink mb-2">Reading your video</h1>
+      <p className="text-mute text-[15.5px] leading-relaxed mb-6">It runs in the background. Keep this tab open, or come back from History.</p>
       <PipelineProgress startedAt={startedAt} />
     </motion.div>
   )
 }
+
+const TABS = [
+  { key: 'summary', label: 'Summary' },
+  { key: 'chapters', label: 'Chapters' },
+  { key: 'claims', label: 'Claims' },
+]
 
 export default function Report() {
   const { jobId } = useParams()
@@ -61,28 +56,19 @@ export default function Report() {
   const [report, setReport] = useState(null)
   const [copied, setCopied] = useState(false)
   const [seekSeconds, setSeekSeconds] = useState(0)
+  const [tab, setTab] = useState('summary')
   const { text, done } = useSSE(videoId)
   const playerRef = useRef(null)
 
-  // useSSE's `text` is a nice live-typing effect, but it has one path to
-  // failure: the EventSource in useSSE.js closes permanently on any error
-  // (a deliberate choice there -- letting the browser auto-reconnect would
-  // silently duplicate every token already received, since this stream
-  // has no resumption cursor). If that connection drops before its "done"
-  // event for any reason (a proxy hiccup, a backgrounded tab, anything),
-  // `text` is stuck at a partial value forever with nothing to recover it.
-  // `report.summary` comes from an independent, ordinary REST call
-  // (getReport, below) that isn't subject to any of that -- once it's
-  // loaded, it's the complete, correct summary regardless of what
-  // happened to the stream, so it takes over as the source of truth.
+  // The SSE stream gives a nice live-typing effect but can drop without a
+  // resume cursor. report.summary comes from an ordinary REST call, so once it
+  // has loaded it is the complete source of truth.
   const displaySummary = report?.summary || text
   const summaryStillStreaming = !report && !done
 
   const jobMeta = getJobMeta(jobId)
   const startedAtRef = useRef(jobMeta?.startedAt ?? Date.now())
-  if (!jobMeta?.startedAt) {
-    saveJobMeta(jobId, { startedAt: startedAtRef.current })
-  }
+  if (!jobMeta?.startedAt) saveJobMeta(jobId, { startedAt: startedAtRef.current })
 
   useEffect(() => {
     let interval
@@ -102,7 +88,7 @@ export default function Report() {
           clearInterval(interval)
         }
       } catch {
-        // transient network hiccup -- next poll tick retries
+        // transient network hiccup: the next poll retries
       }
     }
     poll()
@@ -131,7 +117,7 @@ export default function Report() {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      // clipboard access denied -- silently ignore, it's a nice-to-have
+      // clipboard denied: it's a nice-to-have
     }
   }
 
@@ -140,75 +126,113 @@ export default function Report() {
     playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  if (status !== 'done') {
-    return <ProcessingState status={status} startedAt={startedAtRef.current} />
-  }
-
   const youtubeId = jobMeta?.youtubeId
 
+  if (status !== 'done') return <ProcessingState status={status} startedAt={startedAtRef.current} youtubeId={youtubeId} />
+
+  const verified = report?.claims?.filter((c) => c.verified).length ?? 0
+  const canSeek = Boolean(youtubeId)
+
   return (
-    <div className="space-y-8 max-w-3xl mx-auto">
-      {youtubeId && (
-        <div ref={playerRef}>
-          <VideoPlayer youtubeId={youtubeId} seekSeconds={seekSeconds} autoplayOnSeek />
-        </div>
-      )}
-
-      <section className="rounded-2xl border border-lp-line bg-lp-card p-6 md:p-8 shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1.5">
-            <span className="w-[3px] h-3.5 rounded-full bg-lp-violet" />
-            <h2 className="text-[13px] font-semibold tracking-wide text-lp-ink">Summary</h2>
-          </div>
-          {displaySummary && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-lp-muted hover:text-lp-ink transition-colors"
-            >
-              {copied ? <Check size={13} className="text-lp-green" /> : <Copy size={13} />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          )}
-        </div>
-        <p className="leading-relaxed text-[15px] text-lp-ink/90 whitespace-pre-wrap">
-          {displaySummary}
-          {summaryStillStreaming && <span className="inline-block w-[2px] h-[1em] bg-lp-violet ml-0.5 align-middle animate-caret-blink" />}
-        </p>
-      </section>
-
-      {report ? (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <ChapterList
-            chapters={report.chapters}
-            claims={report.claims}
-            onSeek={youtubeId ? handleSeek : undefined}
-            activeSeconds={youtubeId ? seekSeconds : undefined}
-          />
-
-          <div className="flex flex-wrap gap-3 mt-8">
-            <Link
-              to={`/app/chat/${videoId}`}
-              className="group inline-flex items-center gap-1.5 bg-lp-ink text-white text-[13.5px] font-medium px-5 py-2.5 rounded-full hover:bg-lp-violet transition-colors duration-300"
-            >
-              <MessageSquareText size={14} />
-              Ask about this video
-            </Link>
+    <div>
+      <PageBanner
+        tone="blue"
+        title="Your report"
+        sub={report ? undefined : 'Pulling the finished report together.'}
+        actions={report && (
+          <>
+            <Link to={`/app/chat/${videoId}`} className={btn.sun}><MessageSquareText size={15} strokeWidth={2.6} />Ask about this video</Link>
             <ExportButton videoId={videoId} format="pdf" />
             <ExportButton videoId={videoId} format="markdown" />
-          </div>
-        </motion.div>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-6">
-          {[0, 1].map((i) => (
-            <div key={i} className="space-y-2.5">
-              {[0, 1, 2].map((j) => (
-                <div key={j} className="skeleton animate-shimmer rounded-xl h-20 border border-lp-line" />
-              ))}
+          </>
+        )}
+      >
+        {report && (
+          <p className="flex flex-wrap items-center gap-2 text-[13.5px] font-extrabold">
+            <span className="rounded-full bg-violet text-white border-2 border-ink px-3 py-1">{report.chapters?.length ?? 0} chapters</span>
+            <span className={`rounded-full border-2 border-ink px-3 py-1 text-ink ${verified === (report.claims?.length ?? 0) ? 'bg-mint' : 'bg-mark'}`}>{verified} of {report.claims?.length ?? 0} claims verified</span>
+          </p>
+        )}
+      </PageBanner>
+
+      <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-6 lg:gap-8 items-start">
+        {/* watch: stays in view while you read */}
+        <div className="lg:sticky lg:top-24 space-y-3">
+          {youtubeId ? (
+            <div ref={playerRef}>
+              <VideoPlayer youtubeId={youtubeId} seekSeconds={seekSeconds} autoplayOnSeek />
             </div>
-          ))}
+          ) : (
+            <div className="rounded-[20px] border-2 border-dashed border-ink/30 bg-white/60 p-8 text-center text-[14px] text-mute">
+              The video isn’t available to embed here, but the report below is complete.
+            </div>
+          )}
+          {report ? (
+            <TimelineStrip chapters={report.chapters} claims={report.claims} onSeek={canSeek ? handleSeek : undefined} activeSeconds={canSeek ? seekSeconds : undefined} />
+          ) : (
+            <div className="skeleton animate-shimmer rounded-[20px] h-[88px]" />
+          )}
         </div>
-      )}
+
+        {/* read */}
+        <div className="min-w-0">
+          <div role="tablist" aria-label="Report sections" className="inline-flex bg-white border-2 border-ink rounded-full p-1 mb-5 shadow-pop">
+            {TABS.map((t) => {
+              const count = t.key === 'chapters' ? report?.chapters?.length : t.key === 'claims' ? report?.claims?.length : null
+              return (
+                <button
+                  key={t.key}
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={`relative px-4 py-2 text-[13.5px] font-bold rounded-full transition-colors duration-200 ${tab === t.key ? 'text-white' : 'text-mute hover:text-ink'}`}
+                >
+                  {tab === t.key && <motion.span layoutId="report-tab" transition={{ type: 'spring', stiffness: 420, damping: 34 }} className="absolute inset-0 rounded-full bg-violet -z-10" />}
+                  {t.label}
+                  {count != null && <span className={`ml-1.5 font-mono text-[11px] ${tab === t.key ? 'text-white/70' : 'text-faint'}`}>{count}</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          {tab === 'summary' && (
+            <section role="tabpanel" className="rounded-[26px] bg-white border-2 border-ink shadow-pop p-6 md:p-7 relative overflow-hidden">
+              <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-mark via-sky to-mint" aria-hidden="true" />
+              <div className="flex items-center justify-between mb-4 pl-2">
+                <h2 className="text-[19px] font-extrabold tracking-[-0.025em] text-ink">Summary</h2>
+                {displaySummary && (
+                  <button type="button" onClick={handleCopy} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-mute hover:text-ink transition-colors">
+                    {copied ? <Check size={14} className="text-ok" strokeWidth={3} /> : <Copy size={14} strokeWidth={2.3} />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                )}
+              </div>
+              {displaySummary ? (
+                <p className="pl-2 text-[16px] leading-[1.7] text-ink-soft whitespace-pre-wrap max-w-[62ch]">
+                  {displaySummary}
+                  {summaryStillStreaming && <span className="inline-block w-[2px] h-[1.05em] bg-pink ml-0.5 align-middle animate-caret-blink" />}
+                </p>
+              ) : (
+                <div className="space-y-2.5" aria-label="Summary loading">
+                  {[100, 92, 96, 60].map((w, i) => <div key={i} className="skeleton animate-shimmer h-3.5 rounded-full" style={{ width: `${w}%` }} />)}
+                </div>
+              )}
+            </section>
+          )}
+
+          {tab === 'chapters' && (report ? <ChapterPanel chapters={report.chapters} onSeek={canSeek ? handleSeek : undefined} activeSeconds={canSeek ? seekSeconds : undefined} /> : <ListSkeleton />)}
+          {tab === 'claims' && (report ? <ClaimPanel claims={report.claims} onSeek={canSeek ? handleSeek : undefined} /> : <ListSkeleton />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ListSkeleton() {
+  return (
+    <div className="space-y-2">
+      {[0, 1, 2].map((i) => <div key={i} className="skeleton animate-shimmer rounded-2xl h-24" />)}
     </div>
   )
 }

@@ -1,29 +1,31 @@
-import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-motion'
-import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowUpRight, GitCompare, History as HistoryIcon, Link2 } from 'lucide-react'
+import { NavLink, Route, Routes, useLocation, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import ContextBar from './components/ContextBar.jsx'
-import Landing from './pages/Landing.jsx'
+import { Logo } from './components/ui.jsx'
 import Chat from './pages/Chat.jsx'
 import Compare from './pages/Compare.jsx'
 import CompareResult from './pages/CompareResult.jsx'
 import History from './pages/History.jsx'
+import Landing from './pages/Landing.jsx'
 import Report from './pages/Report.jsx'
 import Upload from './pages/Upload.jsx'
 
 const NAV_ITEMS = [
-  { to: '/app', label: 'Upload' },
-  { to: '/app/compare', label: 'Compare' },
-  { to: '/app/history', label: 'History' },
+  { to: '/app', label: 'Analyze', icon: Link2 },
+  { to: '/app/compare', label: 'Compare', icon: GitCompare },
+  { to: '/app/history', label: 'History', icon: HistoryIcon },
 ]
 
-function NavItem({ to, children }) {
+function NavItem({ to, label, icon: Icon }) {
   return (
     <NavLink
       to={to}
       end
       className={({ isActive }) =>
-        `relative shrink-0 px-3.5 py-2 text-[13.5px] font-medium rounded-full transition-colors duration-300 ${
-          isActive ? 'text-lp-bg' : 'text-lp-muted hover:text-lp-ink'
+        `relative shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-[13.5px] font-semibold rounded-full transition-colors duration-200 ${
+          isActive ? 'text-ink' : 'text-white/75 hover:text-white'
         }`
       }
     >
@@ -32,11 +34,12 @@ function NavItem({ to, children }) {
           {isActive && (
             <motion.span
               layoutId="app-nav-pill"
-              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-              className="absolute inset-0 rounded-full bg-gradient-to-r from-lp-violet to-lp-cyan -z-10"
+              transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              className="absolute inset-0 rounded-full bg-mark -z-10"
             />
           )}
-          {children}
+          <Icon size={14} strokeWidth={2.4} className="hidden sm:block" />
+          {label}
         </>
       )}
     </NavLink>
@@ -44,64 +47,50 @@ function NavItem({ to, children }) {
 }
 
 const pageTransition = {
-  initial: { opacity: 0, y: 10 },
+  initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -6 },
-  transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+  exit: { opacity: 0 },
+  transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
 }
 
-// The functional workspace (upload, report, chat, compare) now shares the
-// same considered, "Apple-level" visual language as the marketing site --
-// same palette, type scale, motion, and rhythm -- so the product never
-// feels like it's handing you off to a different piece of software.
+// The workspace shares the landing page's paper, ink and ultramarine, so
+// moving from the site into the app doesn't feel like changing products.
 function AppShell() {
   const location = useLocation()
   const [scrolled, setScrolled] = useState(false)
-  const { scrollY, scrollYProgress } = useScroll()
 
-  useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 8))
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 6)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-lp-bg text-lp-ink overflow-x-hidden">
-      {/* ambient stage, matched to the landing page's atmosphere */}
-      <div className="fixed inset-0 -z-10 bg-grid opacity-[0.25] mask-fade-b" />
-      <div className="fixed top-[-10%] right-[-10%] w-[45vw] h-[45vw] max-w-[640px] max-h-[640px] rounded-full bg-lp-violet/[0.1] blur-[130px] -z-10 animate-orb-drift" />
-      <div className="fixed bottom-[-15%] left-[-10%] w-[35vw] h-[35vw] max-w-[520px] max-h-[520px] rounded-full bg-lp-cyan/[0.06] blur-[130px] -z-10 animate-orb-drift" style={{ animationDelay: '-8s' }} />
+    <div className="relative min-h-screen flex flex-col bg-paper text-ink overflow-x-hidden">
+      <div className="fixed inset-x-0 top-0 h-[520px] -z-10 bg-dots mask-fade-b pointer-events-none" />
 
-      <header
-        className={`sticky top-0 z-40 transition-colors duration-300 ${
-          scrolled ? 'bg-lp-bg/80 backdrop-blur-xl border-b border-lp-line' : 'bg-lp-bg/40 backdrop-blur-md border-b border-transparent'
-        }`}
-      >
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
-            <motion.span
-              whileHover={{ rotate: -8, scale: 1.06 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-              className="w-7 h-7 rounded-[9px] bg-gradient-to-br from-lp-violet to-lp-cyan text-lp-bg text-xs font-bold flex items-center justify-center font-display"
-            >
-              S
-            </motion.span>
-            <span className="font-display font-semibold tracking-tight text-lp-ink">Scrybe</span>
-          </Link>
-          <nav className="flex items-center gap-1 bg-lp-card border border-lp-line rounded-full p-1 overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <header className={`sticky top-0 z-40 bg-ink border-b-4 border-mark transition-shadow duration-200 ${scrolled ? 'shadow-float' : ''}`}>
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between gap-4">
+          <Logo light />
+          <nav
+            aria-label="Workspace"
+            className="flex items-center gap-0.5 bg-white/10 border border-white/20 rounded-full p-1 overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {NAV_ITEMS.map((n) => (
-              <NavItem key={n.to} to={n.to}>
-                {n.label}
-              </NavItem>
+              <NavItem key={n.to} {...n} />
             ))}
           </nav>
+          <Link to="/" className="hidden md:inline-flex items-center gap-1 text-[13.5px] font-semibold text-white/75 hover:text-white transition-colors">
+            Site <ArrowUpRight size={14} strokeWidth={2.4} />
+          </Link>
         </div>
-        <motion.div
-          className="h-px origin-left bg-gradient-to-r from-lp-violet via-lp-violet2 to-lp-cyan"
-          style={{ scaleX: scrollYProgress }}
-        />
       </header>
 
       <ContextBar />
 
       <main className="flex-1">
-        <div className="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 py-10 md:py-14">
           <AnimatePresence mode="wait">
             <motion.div key={location.pathname} {...pageTransition}>
               <Routes location={location}>
@@ -117,12 +106,11 @@ function AppShell() {
         </div>
       </main>
 
-      <footer className="border-t border-lp-line">
-        <div className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
-          <p className="font-mono text-[11px] text-lp-faint">Scrybe &mdash; built on LangGraph &amp; Groq.</p>
-          <Link to="/" className="group relative text-[12.5px] font-medium text-lp-muted hover:text-lp-ink transition-colors w-fit">
+      <footer className="border-t-2 border-ink/10">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 py-5 flex items-center justify-between">
+          <p className="font-mono text-[11.5px] text-faint">Scrybe · built on LangGraph and Groq</p>
+          <Link to="/" className="text-[13px] font-semibold text-mute hover:text-ink transition-colors">
             Back to site
-            <span className="absolute left-0 -bottom-0.5 h-px w-0 bg-gradient-to-r from-lp-violet to-lp-cyan group-hover:w-full transition-all duration-300" />
           </Link>
         </div>
       </footer>

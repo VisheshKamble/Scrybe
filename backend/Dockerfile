@@ -2,7 +2,12 @@ FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y \
     ffmpeg libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 \
+    curl unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# yt-dlp needs a JavaScript runtime for YouTube's current player challenges.
+RUN curl -fsSL https://deno.land/install.sh | sh \
+    && ln -s /root/.deno/bin/deno /usr/local/bin/deno
 
 WORKDIR /app
 COPY requirements.txt .

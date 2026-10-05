@@ -2,10 +2,7 @@ import { Download, FileText, FileType, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { exportReportUrl } from '../lib/api.js'
 
-const ICONS = {
-  pdf: FileType,
-  markdown: FileText,
-}
+const ICONS = { pdf: FileType, markdown: FileText }
 
 export default function ExportButton({ videoId, format }) {
   const [state, setState] = useState('idle') // idle | loading | error
@@ -39,14 +36,12 @@ export default function ExportButton({ videoId, format }) {
       type="button"
       onClick={handleClick}
       disabled={state === 'loading'}
-      className="group inline-flex items-center gap-2 text-[13.5px] font-medium text-lp-ink bg-lp-card border border-lp-line rounded-full px-4 py-2.5 hover:border-lp-ink transition-colors duration-200 disabled:cursor-wait"
+      className={`group inline-flex items-center gap-2 text-[13.5px] font-semibold rounded-full px-4 py-2.5 border transition-colors duration-200 disabled:cursor-wait ${
+        state === 'error' ? 'bg-bad-soft border-bad/30 text-bad' : 'bg-white border-white text-ink hover:bg-mark hover:border-ink'
+      }`}
     >
-      {state === 'loading' ? (
-        <Loader2 size={14} className="text-lp-muted animate-spin" strokeWidth={2} />
-      ) : (
-        <Icon size={14} className="text-lp-muted group-hover:text-lp-ink transition-colors" strokeWidth={2} />
-      )}
-      {state === 'loading' ? 'Preparing…' : state === 'error' ? 'Failed — retry' : `Export ${format.toUpperCase()}`}
+      {state === 'loading' ? <Loader2 size={14} className="animate-spin text-mute" strokeWidth={2.4} /> : <Icon size={14} className="text-mute group-hover:text-ink transition-colors" strokeWidth={2.4} />}
+      {state === 'loading' ? 'Preparing' : state === 'error' ? 'Export failed, retry' : `Export ${format === 'markdown' ? 'Markdown' : 'PDF'}`}
     </button>
   )
 }

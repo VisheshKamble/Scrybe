@@ -1,59 +1,30 @@
-import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { Stagger, StaggerItem } from './Reveal.jsx'
+import { Logo } from '../ui.jsx'
 
 const LINKS = [
-  { href: '#pipeline', label: 'Pipeline' },
-  { href: '#features', label: 'Features' },
-  { href: '#stack', label: 'Stack' },
-  { href: '#about', label: 'About' },
+  { href: '#reads', label: 'What it reads' },
+  { href: '#use', label: 'Who it’s for' },
+  { href: '#pipeline', label: 'How it runs' },
+  { href: '#run', label: 'Run it' },
+  { href: '#limits', label: 'Limits' },
 ]
 
 export default function Footer() {
   return (
-    <footer className="relative border-t border-lp-line bg-lp-bg overflow-hidden">
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[240px] bg-lp-violet/[0.04] blur-[100px] -z-10" />
-
-      <Stagger className="max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row md:items-center md:justify-between gap-8" amount={0.3}>
-        <StaggerItem>
-          <div className="flex items-center gap-2.5 mb-3">
-            <motion.span
-              whileHover={{ rotate: -8, scale: 1.06 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-              className="w-7 h-7 rounded-[9px] bg-gradient-to-br from-lp-violet to-lp-cyan text-lp-bg text-xs font-bold flex items-center justify-center font-display"
-            >
-              S
-            </motion.span>
-            <span className="font-display font-semibold tracking-tight text-lp-ink">Scrybe</span>
-          </div>
-          <p className="text-[13.5px] text-lp-muted max-w-xs leading-relaxed">
-            Agentic video intelligence &mdash; transcript, visuals, chapters, fact-checks, and
-            timestamp-grounded chat, in one pass.
-          </p>
-        </StaggerItem>
-
-        <StaggerItem as="nav" className="flex flex-wrap gap-x-6 gap-y-2">
-          {LINKS.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="group relative text-[13.5px] text-lp-muted hover:text-lp-ink transition-colors w-fit"
-            >
-              {l.label}
-              <span className="absolute left-0 -bottom-0.5 h-px w-0 bg-gradient-to-r from-lp-violet to-lp-cyan group-hover:w-full transition-all duration-300" />
-            </a>
-          ))}
-          <Link to="/app" className="group relative text-[13.5px] text-lp-muted hover:text-lp-ink transition-colors w-fit">
-            Open App
-            <span className="absolute left-0 -bottom-0.5 h-px w-0 bg-gradient-to-r from-lp-violet to-lp-cyan group-hover:w-full transition-all duration-300" />
-          </Link>
-        </StaggerItem>
-      </Stagger>
-
-      <div className="max-w-6xl mx-auto px-6 pb-8">
-        <p className="font-mono text-[11px] text-lp-faint">
-          Scrybe &mdash; built on LangGraph &amp; Groq. &copy; {new Date().getFullYear()}.
-        </p>
+    <footer className="bg-ink text-white">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 py-12 flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+        <div>
+          <Logo light />
+          <p className="mt-3 text-[14px] text-white/65 max-w-xs leading-relaxed">Reads a video for what was said, shown and true, and cites the second for each.</p>
+        </div>
+        <nav className="flex flex-wrap gap-x-7 gap-y-3" aria-label="Footer">
+          {LINKS.map((l) => <a key={l.href} href={l.href} className="text-[14px] font-semibold text-white/70 hover:text-mark transition-colors">{l.label}</a>)}
+          <Link to="/app" className="text-[14px] font-extrabold text-mark hover:text-white transition-colors">Open the app</Link>
+        </nav>
+      </div>
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 pb-8 flex items-center gap-3">
+        <span className="flex gap-1.5" aria-hidden="true">{['bg-mark', 'bg-sky', 'bg-mint', 'bg-pink'].map((c) => <i key={c} className={`w-2.5 h-2.5 rounded-full ${c}`} />)}</span>
+        <p className="font-mono text-[11.5px] text-white/45">Built on LangGraph and Groq · © {new Date().getFullYear()}</p>
       </div>
     </footer>
   )

@@ -38,6 +38,8 @@ def download_video(youtube_url: str) -> dict:
             # so fall back to merging them if a combined stream isn't
             # available.
             "-f", "bv*[height<=720]+ba/b[height<=720]/best",
+            "--js-runtimes", "deno",
+            "--remote-components", "ejs:github",
             "--merge-output-format", "mp4",
             "-o", out_template,
             # "--" tells yt-dlp's own arg parser that nothing after this
@@ -63,6 +65,8 @@ def download_video(youtube_url: str) -> dict:
             "yt-dlp",
             "--no-playlist",
             "--skip-download",
+            "--js-runtimes", "deno",
+            "--remote-components", "ejs:github",
             "--write-auto-sub", "--sub-lang", "en",
             "--convert-subs", "srt",
             "-o", out_template,

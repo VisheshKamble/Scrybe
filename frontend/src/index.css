@@ -2,88 +2,103 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --paper: #ECEFFF;
+  --ink: #12172B;
+}
+
 html {
   scroll-behavior: smooth;
   overflow-x: hidden;
+  scroll-padding-top: 88px;
 }
 
 body {
-  background-color: #050507;
-  color: #F6F5F2;
+  background-color: var(--paper);
+  color: var(--ink);
   overflow-x: hidden;
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background-color: #7C5CFF;
-  color: #ffffff;
+  background-color: #FFDD4A;
+  color: #12172B;
 }
 
-/* Slim, quiet scrollbar tuned for a dark stage. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2C2C3A transparent;
+  scrollbar-color: #BFC8EB transparent;
 }
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-*::-webkit-scrollbar-thumb {
-  background-color: #2C2C3A;
-  border-radius: 9999px;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background-color: #43435a;
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background-color: #BFC8EB; border-radius: 9999px; }
+*::-webkit-scrollbar-thumb:hover { background-color: #9AA6D6; }
+
+:focus-visible {
+  outline: 2px solid #3547F5;
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 @layer utilities {
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
 
-  /* Shimmering skeleton sheen for loading states */
   .skeleton {
-    background-image: linear-gradient(
-      100deg,
-      #14141c 30%,
-      #1c1c28 45%,
-      #1c1c28 55%,
-      #14141c 70%
-    );
+    background-image: linear-gradient(100deg, #DFE4FB 30%, #F3F5FF 45%, #F3F5FF 55%, #DFE4FB 70%);
     background-size: 200% 100%;
   }
 
-  /* Gradient text: violet -> cyan, the one recurring accent move. */
-  .text-gradient {
-    background-image: linear-gradient(95deg, #7C5CFF 0%, #B69CFF 45%, #22E7D0 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  /* A page-wide dot ledger: the quiet "ruled paper" the whole product sits on. */
+  .bg-dots {
+    background-image: radial-gradient(rgba(43,59,238,0.16) 1px, transparent 1px);
+    background-size: 22px 22px;
   }
-
-  /* Fine 1px engineering grid, used sparingly behind hero-scale moments. */
-  .bg-grid {
-    background-image:
-      linear-gradient(to right, rgba(255,255,255,0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255,255,255,0.045) 1px, transparent 1px);
-    background-size: 44px 44px;
+  .bg-dots-light {
+    background-image: radial-gradient(rgba(255,255,255,0.22) 1.2px, transparent 1.2px);
+    background-size: 24px 24px;
+  }
+  .bg-dots-ink {
+    background-image: radial-gradient(rgba(18,23,43,0.18) 1.2px, transparent 1.2px);
+    background-size: 24px 24px;
+  }
+  .bg-dots-night {
+    background-image: radial-gradient(rgba(143,152,192,0.16) 1px, transparent 1px);
+    background-size: 22px 22px;
   }
 
   .mask-fade-b {
-    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  }
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  }
+
+  /* The highlighter: a yellow marker swipe behind the words a scribe would underline. */
+  .hl {
+    background-image: linear-gradient(transparent 58%, #FFE066 58%, #FFE066 92%, transparent 92%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    padding: 0 0.12em;
+    margin: 0 -0.12em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .hl-full {
+    background-color: #FFE066;
+    padding: 0.05em 0.2em;
+    margin: 0 -0.2em;
+    border-radius: 3px;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-  *,
-  *::before,
-  *::after {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

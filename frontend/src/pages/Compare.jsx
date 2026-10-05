@@ -1,30 +1,24 @@
 import { motion } from 'framer-motion'
-import { AlertCircle, GitCompare, Layers, Link2, ListChecks, Plus, ScanSearch, X } from 'lucide-react'
+import { AlertCircle, ArrowRight, GitCompare, Layers, Link2, ListChecks, Plus, ScanSearch, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import RecentList from '../components/RecentList.jsx'
+import { PageBanner, W } from '../components/ui.jsx'
 import { compareVideos } from '../lib/api.js'
 import { saveJobMeta, upsertHistoryEntry } from '../lib/storage.js'
-import { extractYoutubeId, isValidYoutubeUrl } from '../lib/youtube.js'
+import { extractYoutubeId, isValidYoutubeUrl, youtubeThumbnail } from '../lib/youtube.js'
 
 const FOCUS_EXAMPLES = ['Which one explains it better', 'Contradicting claims', 'Pricing or numbers mentioned']
 
 const HOW_IT_WORKS = [
-  { icon: Layers, label: 'Each video runs the full pipeline', body: 'Transcript, visuals, and chapters, independently, for every video you add.' },
-  { icon: ScanSearch, label: 'Agents line up the overlap', body: 'Shared topics and claims across videos are matched before anything is written.' },
-  { icon: ListChecks, label: 'One synthesized comparison', body: 'Agreements, contradictions, and gaps come back as a single report, not N reports.' },
+  { icon: Layers, label: 'Each video runs the full pipeline', body: 'Transcript, visuals and chapters, separately, for every video you add.' },
+  { icon: ScanSearch, label: 'The overlap is lined up', body: 'Shared topics and claims are matched before anything is written.' },
+  { icon: ListChecks, label: 'You get one comparison', body: 'Agreements, contradictions and gaps in a single write-up, not N reports.' },
 ]
 
 const EASE = [0.16, 1, 0.3, 1]
-
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } },
-}
-const item = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
-}
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.03 } } }
+const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } } }
 
 export default function Compare() {
   const [urls, setUrls] = useState(['', ''])
@@ -33,13 +27,8 @@ export default function Compare() {
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
 
-  function updateUrl(i, value) {
-    setUrls((prev) => prev.map((u, idx) => (idx === i ? value : u)))
-  }
-
-  function removeUrl(i) {
-    setUrls((prev) => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev))
-  }
+  const updateUrl = (i, value) => setUrls((prev) => prev.map((u, idx) => (idx === i ? value : u)))
+  const removeUrl = (i) => setUrls((prev) => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev))
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -50,29 +39,16 @@ export default function Compare() {
     }
     const invalid = cleaned.find((u) => !isValidYoutubeUrl(u))
     if (invalid) {
-      setError(`"${invalid}" doesn\u2019t look like a valid YouTube link.`)
+      setError(`“${invalid}” doesn’t look like a valid YouTube link.`)
       return
     }
-
     setSubmitting(true)
     setError(null)
     try {
       const res = await compareVideos(cleaned, focus || undefined)
-      saveJobMeta(res.job_id, {
-        youtubeUrls: cleaned,
-        youtubeIds: cleaned.map(extractYoutubeId),
-        focus,
-        startedAt: Date.now(),
-      })
-      upsertHistoryEntry({
-        id: res.job_id,
-        type: 'compare',
-        jobId: res.job_id,
-        youtubeUrls: cleaned,
-        youtubeIds: cleaned.map(extractYoutubeId),
-        status: 'processing',
-        createdAt: Date.now(),
-      })
+      const youtubeIds = cleaned.map(extractYoutubeId)
+      saveJobMeta(res.job_id, { youtubeUrls: cleaned, youtubeIds, focus, startedAt: Date.now() })
+      upsertHistoryEntry({ id: res.job_id, type: 'compare', jobId: res.job_id, youtubeUrls: cleaned, youtubeIds, status: 'processing', createdAt: Date.now() })
       navigate(`/app/compare/${res.job_id}`)
     } catch (err) {
       setError(err.message)
@@ -81,163 +57,101 @@ export default function Compare() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <motion.div variants={container} initial="hidden" animate="show" className="grid lg:grid-cols-[1.15fr_0.85fr] gap-14 lg:gap-10 items-start">
-        <div>
-          <motion.div variants={item} className="mb-6">
-            <span className="inline-flex items-center gap-2 border border-lp-line2 bg-white/[0.03] backdrop-blur-sm rounded-full pl-2.5 pr-3.5 py-1.5 text-[12.5px] font-medium text-lp-violet2">
-              <span className="w-1.5 h-1.5 rounded-full bg-lp-cyan animate-pulse-dot" />
-              Multi-video comparison
-            </span>
-          </motion.div>
-
-          <motion.h1
-            variants={item}
-            className="font-display font-semibold text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.03] tracking-[-0.03em] text-lp-ink [text-wrap:balance] mb-3"
-          >
-            Compare <span className="text-gradient italic">videos</span>
-          </motion.h1>
-          <motion.p variants={item} className="text-lp-muted text-[15.5px] leading-relaxed mb-9 max-w-md">
-            Run two or more videos through the pipeline together and get a single synthesized
-            comparison back.
-          </motion.p>
-
-          <motion.form variants={item} onSubmit={handleSubmit} className="space-y-3">
-            <div className="space-y-2.5">
-              {urls.map((u, i) => {
-                const invalid = u.trim().length > 0 && !isValidYoutubeUrl(u)
-                return (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-2.5 rounded-xl border bg-lp-card/90 backdrop-blur-sm pl-3.5 pr-2 py-1 shadow-card transition-all duration-300 ${
-                      invalid ? 'border-lp-red/40' : 'border-lp-line2 focus-within:border-lp-violet/50 focus-within:shadow-violet-glow'
-                    }`}
-                  >
-                    <span className="font-mono text-[10.5px] text-lp-faint w-4 shrink-0">{i + 1}</span>
-                    <Link2 size={14} className="text-lp-faint shrink-0" strokeWidth={2} />
-                    <input
-                      value={u}
-                      onChange={(e) => updateUrl(i, e.target.value)}
-                      placeholder={`YouTube URL ${i + 1}`}
-                      className="flex-1 bg-transparent py-2.5 text-[13.5px] font-mono text-lp-ink placeholder:text-lp-faint outline-none min-w-0"
-                    />
-                    {urls.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removeUrl(i)}
-                        aria-label="Remove video"
-                        className="p-1.5 text-lp-faint hover:text-lp-red transition-colors shrink-0"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setUrls((prev) => [...prev, ''])}
-              className="w-full inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-lp-muted border border-dashed border-lp-line2 rounded-xl py-2.5 hover:border-lp-violet/40 hover:text-lp-violet2 hover:bg-white/[0.02] transition-all duration-300"
-            >
-              <Plus size={14} />
-              Add another video
-            </button>
-
-            <div className="rounded-xl border border-lp-line2 bg-lp-card/90 backdrop-blur-sm px-3.5 py-1 shadow-card focus-within:border-lp-violet/50 focus-within:shadow-violet-glow transition-all duration-300">
-              <input
-                value={focus}
-                onChange={(e) => setFocus(e.target.value)}
-                placeholder="Optional: what should the comparison focus on?"
-                className="w-full bg-transparent py-2.5 text-[13.5px] text-lp-ink placeholder:text-lp-faint outline-none"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              {FOCUS_EXAMPLES.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFocus(f)}
-                  className="text-[11.5px] font-medium text-lp-muted border border-lp-line2 bg-lp-card rounded-full px-2.5 py-1 hover:border-lp-violet/40 hover:text-lp-violet2 transition-colors"
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="group relative w-full inline-flex items-center justify-center gap-1.5 overflow-hidden bg-lp-ink text-lp-bg text-[14.5px] font-semibold px-5 py-3 rounded-xl transition-shadow duration-300 hover:shadow-violet-glow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lp-violet"
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-lp-violet to-lp-cyan opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <span className="relative inline-flex items-center gap-1.5">
-                {submitting ? (
-                  <>
-                    <span className="w-3.5 h-3.5 rounded-full border-2 border-lp-bg/30 border-t-lp-bg animate-spin" />
-                    Starting&hellip;
-                  </>
-                ) : (
-                  <>
-                    <GitCompare size={15} />
-                    Compare
-                  </>
-                )}
-              </span>
-            </button>
-          </motion.form>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-3 flex items-start gap-2 rounded-xl border border-lp-red/20 bg-lp-redsoft px-3.5 py-2.5"
-            >
-              <AlertCircle size={15} className="text-lp-red shrink-0 mt-0.5" strokeWidth={2} />
-              <p className="text-[13.5px] text-lp-red leading-relaxed">{error}</p>
-            </motion.div>
-          )}
-
-          <motion.div variants={item} className="mt-14 pt-10 border-t border-lp-line">
-            <RecentList limit={4} showEmpty={false} layout="grid" />
-          </motion.div>
-        </div>
-
-        <motion.div variants={item} className="lg:sticky lg:top-24">
-          <div className="relative rounded-2xl border border-lp-line2 bg-lp-card/60 backdrop-blur-sm p-6 overflow-hidden">
-            <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-lp-cyan/10 blur-3xl" />
-            <p className="relative font-mono text-[10px] tracking-[0.14em] text-lp-faint mb-6">HOW IT WORKS</p>
-
-            <div className="relative">
-              <div className="absolute left-[15px] top-2 bottom-2 w-px bg-gradient-to-b from-lp-violet via-lp-line2 to-transparent" />
-              <ul className="space-y-6">
-                {HOW_IT_WORKS.map((step, i) => {
-                  const Icon = step.icon
-                  return (
-                    <motion.li
-                      key={step.label}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, ease: EASE, delay: 0.3 + i * 0.09 }}
-                      className="relative flex gap-3.5"
-                    >
-                      <span className="relative z-10 shrink-0 w-[31px] h-[31px] rounded-full bg-lp-bg border border-lp-line2 flex items-center justify-center">
-                        <Icon size={14} className="text-lp-violet2" strokeWidth={2} />
-                      </span>
-                      <div className="pt-1">
-                        <p className="text-[13.5px] font-semibold text-lp-ink mb-0.5">{step.label}</p>
-                        <p className="text-[12.5px] text-lp-muted leading-relaxed">{step.body}</p>
-                      </div>
-                    </motion.li>
-                  )
-                })}
-              </ul>
-            </div>
-          </div>
-        </motion.div>
+    <motion.div variants={container} initial="hidden" animate="show">
+      <motion.div variants={item}>
+        <PageBanner tone="violet" title={<>Put two videos <W c="mark" tilt={-2}>side by side</W>.</>} sub="Add two or more links on the same topic. You’ll get one write-up of where they agree, where they don’t, and what only one of them covers." />
       </motion.div>
-    </div>
+      <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-10 lg:gap-12 items-start">
+      <div>
+        <motion.form variants={item} onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-2.5">
+            {urls.map((u, i) => {
+              const id = extractYoutubeId(u)
+              const invalid = u.trim().length > 0 && !id
+              return (
+                <div key={i} className={`flex items-center gap-3 rounded-[20px] bg-white border-2 pl-3 pr-2 py-1.5 transition-shadow duration-200 ${invalid ? 'border-bad' : 'border-ink focus-within:shadow-[4px_4px_0_0_#6A3DF0]'}`}>
+                  <span className="w-[52px] h-[34px] rounded-lg overflow-hidden shrink-0 bg-violet-soft flex items-center justify-center">
+                    {id ? <img src={youtubeThumbnail(id)} alt="" className="w-full h-full object-cover" /> : <span className="font-mono text-[13px] font-bold text-faint">{i + 1}</span>}
+                  </span>
+                  <label htmlFor={`url-${i}`} className="sr-only">YouTube link {i + 1}</label>
+                  <input id={`url-${i}`} value={u} onChange={(e) => updateUrl(i, e.target.value)} placeholder={`YouTube link ${i + 1}`} className="flex-1 bg-transparent py-2.5 text-[14.5px] font-mono text-ink placeholder:text-faint outline-none min-w-0" />
+                  {urls.length > 2 && (
+                    <button type="button" onClick={() => removeUrl(i)} aria-label={`Remove video ${i + 1}`} className="p-2 rounded-full text-mute hover:text-bad hover:bg-bad-soft transition-colors shrink-0">
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <button type="button" onClick={() => setUrls((prev) => [...prev, ''])} className="w-full inline-flex items-center justify-center gap-1.5 text-[14px] font-bold text-ink border-2 border-dashed border-ink/40 rounded-[20px] py-3 hover:border-ink hover:bg-mark transition-colors duration-200">
+            <Plus size={15} strokeWidth={2.6} />
+            Add another video
+          </button>
+
+          <div className="rounded-[20px] bg-white border-2 border-ink px-4 py-0.5 focus-within:shadow-[4px_4px_0_0_#6A3DF0] transition-shadow duration-200">
+            <label htmlFor="focus" className="sr-only">Comparison focus</label>
+            <input id="focus" value={focus} onChange={(e) => setFocus(e.target.value)} placeholder="Optional: what should the comparison focus on?" className="w-full bg-transparent py-3 text-[14.5px] text-ink placeholder:text-faint outline-none" />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {FOCUS_EXAMPLES.map((f) => (
+              <button key={f} type="button" onClick={() => setFocus(f)} className="text-[13px] font-bold text-ink border-2 border-ink bg-white rounded-full px-3.5 py-1.5 hover:bg-mint transition-colors">
+                {f}
+              </button>
+            ))}
+          </div>
+
+          <button type="submit" disabled={submitting} className="group w-full inline-flex items-center justify-center gap-2 rounded-[20px] bg-violet text-white text-[15px] font-extrabold px-5 py-4 border-2 border-ink shadow-pop hover:bg-ink transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-ink">
+            {submitting ? (
+              <>
+                <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                Starting
+              </>
+            ) : (
+              <>
+                <GitCompare size={16} strokeWidth={2.5} />
+                Compare these videos
+                <ArrowRight size={16} strokeWidth={2.6} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+              </>
+            )}
+          </button>
+        </motion.form>
+
+        {error && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} role="alert" className="mt-3 flex items-start gap-2.5 rounded-2xl bg-bad-soft border-2 border-bad px-4 py-3">
+            <AlertCircle size={16} className="text-bad shrink-0 mt-0.5" strokeWidth={2.4} />
+            <p className="text-[14px] font-medium text-bad leading-relaxed">{error}</p>
+          </motion.div>
+        )}
+
+        <motion.div variants={item} className="mt-12">
+          <RecentList limit={4} showEmpty={false} layout="grid" filter="compare" title="Past comparisons" />
+        </motion.div>
+      </div>
+
+      <motion.aside variants={item} className="lg:sticky lg:top-28 rounded-[26px] bg-white border-2 border-ink shadow-pop p-6">
+        <h2 className="text-[19px] font-extrabold tracking-[-0.025em] text-ink mb-5">How it works</h2>
+        <ol className="relative space-y-5">
+          <div className="absolute left-[15px] top-3 bottom-3 w-px bg-line" aria-hidden="true" />
+          {HOW_IT_WORKS.map(({ icon: Icon, label, body }, i) => (
+            <motion.li key={label} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease: EASE, delay: 0.25 + i * 0.08 }} className="relative flex gap-3.5">
+              <span className="relative z-10 w-[31px] h-[31px] rounded-full bg-mark text-ink border-2 border-ink flex items-center justify-center shrink-0">
+                <Icon size={14} strokeWidth={2.4} />
+              </span>
+              <div className="pt-0.5">
+                <p className="text-[14.5px] font-bold text-ink leading-tight">{label}</p>
+                <p className="text-[13.5px] text-mute leading-snug mt-0.5">{body}</p>
+              </div>
+            </motion.li>
+          ))}
+        </ol>
+        <p className="mt-6 pt-5 border-t border-line text-[13px] text-mute leading-relaxed">
+          If one video can’t be processed (private, age-restricted, region-locked), the whole comparison fails.
+        </p>
+      </motion.aside>
+      </div>
+    </motion.div>
   )
 }
