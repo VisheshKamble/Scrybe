@@ -38,3 +38,9 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+# --- Scrybe additions ---
+cookies*.txt
+*.cookies
+backend/.ruff_cache/
+backend/.pytest_cache/
+backend/data/

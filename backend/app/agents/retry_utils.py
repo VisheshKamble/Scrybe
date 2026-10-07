@@ -57,5 +57,5 @@ def call_with_retries(fn, *args, max_retries: int = 4, base_delay: float = 3.0, 
             if not _is_retryable(exc) or attempt == max_retries:
                 raise
             last_exc = exc
-            time.sleep(base_delay * (2 ** attempt))
+            time.sleep(base_delay * (2**attempt))
     raise last_exc  # pragma: no cover -- loop above always returns or raises

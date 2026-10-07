@@ -41,11 +41,13 @@ def parse_srt(path: str) -> list[dict]:
             continue
         start_str, end_str = [t.strip() for t in lines[1].split("-->")]
         text = " ".join(lines[2:])
-        segments.append({
-            "start": _srt_time_to_seconds(start_str),
-            "end": _srt_time_to_seconds(end_str),
-            "text": text,
-        })
+        segments.append(
+            {
+                "start": _srt_time_to_seconds(start_str),
+                "end": _srt_time_to_seconds(end_str),
+                "text": text,
+            }
+        )
     return segments
 
 
@@ -65,19 +67,13 @@ def _call_whisper(audio_path: str) -> list[dict]:
     # A chunk that's pure silence can come back with no segments at all --
     # that's a valid result, not an error.
     segments = getattr(response, "segments", None) or []
-    return [
-        {"start": seg["start"], "end": seg["end"], "text": seg["text"]}
-        for seg in segments
-    ]
+    return [{"start": seg["start"], "end": seg["end"], "text": seg["text"]} for seg in segments]
 
 
 def _offset_segments(segments: list[dict], offset_seconds: float) -> list[dict]:
     if not offset_seconds:
         return segments
-    return [
-        {**s, "start": s["start"] + offset_seconds, "end": s["end"] + offset_seconds}
-        for s in segments
-    ]
+    return [{**s, "start": s["start"] + offset_seconds, "end": s["end"] + offset_seconds} for s in segments]
 
 
 def _split_into_pieces(audio_path: str, piece_seconds: float, tmp_dir: str) -> list[str]:
@@ -90,12 +86,18 @@ def _split_into_pieces(audio_path: str, piece_seconds: float, tmp_dir: str) -> l
     try:
         subprocess.run(
             [
-                "ffmpeg", "-y",
-                "-i", audio_path,
-                "-f", "segment",
-                "-segment_time", f"{piece_seconds:.3f}",
-                "-c", "copy",
-                "-reset_timestamps", "1",
+                "ffmpeg",
+                "-y",
+                "-i",
+                audio_path,
+                "-f",
+                "segment",
+                "-segment_time",
+                f"{piece_seconds:.3f}",
+                "-c",
+                "copy",
+                "-reset_timestamps",
+                "1",
                 pattern,
             ],
             check=True,
@@ -111,9 +113,7 @@ def _split_into_pieces(audio_path: str, piece_seconds: float, tmp_dir: str) -> l
     return pieces
 
 
-def _transcribe_recursive(
-    audio_path: str, offset_seconds: float, tmp_dir: str, depth: int = 0
-) -> list[dict]:
+def _transcribe_recursive(audio_path: str, offset_seconds: float, tmp_dir: str, depth: int = 0) -> list[dict]:
     """Transcribes one audio file of any size. If it fits under Groq's
     upload limit, it's sent as-is. If not (or if Groq still rejects it as
     413 despite looking small enough), it's split into pieces sized from
@@ -145,9 +145,7 @@ def _transcribe_recursive(
     duration = get_audio_duration_seconds(audio_path)
     if duration <= 2.0:
         raise RuntimeError(
-            f"'{audio_path}' is too large to upload but too short "
-            f"({duration:.1f}s) to split further -- likely a corrupt or "
-            f"non-audio file."
+            f"'{audio_path}' is too large to upload but too short ({duration:.1f}s) to split further -- likely a corrupt or non-audio file."
         )
 
     # Size pieces from this file's own measured bytes-per-second, at 85% of
@@ -164,9 +162,7 @@ def _transcribe_recursive(
     offset = offset_seconds
     for piece_path in piece_paths:
         piece_duration = get_audio_duration_seconds(piece_path)
-        all_segments.extend(
-            _transcribe_recursive(piece_path, offset, tmp_dir, depth + 1)
-        )
+        all_segments.extend(_transcribe_recursive(piece_path, offset, tmp_dir, depth + 1))
         offset += piece_duration
         try:
             os.remove(piece_path)

@@ -3,11 +3,8 @@ from pathlib import Path
 
 from app.config import settings
 
-AUDIO_DIR = Path("data/audio")
-AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
-
-def extract_audio(video_path: str, video_id: str) -> str:
+def extract_audio(video_path: str, video_id: str, out_dir: Path | None = None) -> str:
     """Pulls just the audio track out of the downloaded video.
 
     This is the actual fix for the 413s: `process_video_task` used to pass
@@ -23,17 +20,25 @@ def extract_audio(video_path: str, video_id: str) -> str:
     needed. `-c copy` isn't used here on purpose: we're changing codec
     parameters (mono, 16kHz, low bitrate), not just remuxing.
     """
-    out_path = AUDIO_DIR / f"{video_id}.mp3"
+    out_dir = out_dir or Path("data/audio")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{video_id}.mp3"
     try:
         subprocess.run(
             [
-                "ffmpeg", "-y",
-                "-i", video_path,
+                "ffmpeg",
+                "-y",
+                "-i",
+                video_path,
                 "-vn",  # drop the video stream entirely
-                "-ac", "1",  # mono
-                "-ar", str(settings.audio_sample_rate_hz),
-                "-b:a", f"{settings.audio_bitrate_kbps}k",
-                "-c:a", "libmp3lame",
+                "-ac",
+                "1",  # mono
+                "-ar",
+                str(settings.audio_sample_rate_hz),
+                "-b:a",
+                f"{settings.audio_bitrate_kbps}k",
+                "-c:a",
+                "libmp3lame",
                 str(out_path),
             ],
             check=True,
@@ -41,9 +46,7 @@ def extract_audio(video_path: str, video_id: str) -> str:
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            f"ffmpeg failed to extract audio from '{video_path}': {exc.stderr}"
-        ) from exc
+        raise RuntimeError(f"ffmpeg failed to extract audio from '{video_path}': {exc.stderr}") from exc
 
     return str(out_path)
 
@@ -51,9 +54,13 @@ def extract_audio(video_path: str, video_id: str) -> str:
 def get_audio_duration_seconds(audio_path: str) -> float:
     result = subprocess.run(
         [
-            "ffprobe", "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
             audio_path,
         ],
         check=True,

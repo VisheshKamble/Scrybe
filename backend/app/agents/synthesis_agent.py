@@ -16,15 +16,17 @@ def extract_claims(transcript: str) -> list[dict]:
     response = call_with_retries(
         client.chat.completions.create,
         model=settings.model_reasoning,
-        messages=[{
-            "role": "user",
-            "content": (
-                "Extract up to 6 specific, checkable factual claims from this "
-                "video transcript. Return strict JSON of the shape "
-                '{"claims": [{"text": str, "timestamp_seconds": number}]}.'
-                f"\n\n{transcript}"
-            ),
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    "Extract up to 6 specific, checkable factual claims from this "
+                    "video transcript. Return strict JSON of the shape "
+                    '{"claims": [{"text": str, "timestamp_seconds": number}]}.'
+                    f"\n\n{transcript}"
+                ),
+            }
+        ],
         response_format={"type": "json_object"},
     )
     parsed = json.loads(response.choices[0].message.content)
@@ -49,14 +51,16 @@ def fact_check_claim(claim_text: str) -> dict:
         response = call_with_retries(
             client.chat.completions.create,
             model=settings.model_factcheck,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f'Fact-check this claim using web search: "{claim_text}". '
-                    "Reply with VERIFIED, DISPUTED, or UNVERIFIABLE on the "
-                    "first word, then one sentence explaining why."
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f'Fact-check this claim using web search: "{claim_text}". '
+                        "Reply with VERIFIED, DISPUTED, or UNVERIFIABLE on the "
+                        "first word, then one sentence explaining why."
+                    ),
+                }
+            ],
         )
     except groq.APIStatusError as exc:
         return {
@@ -111,13 +115,15 @@ def run_synthesis_agent(state: dict) -> dict:
     stream = call_with_retries(
         client.chat.completions.create,
         model=settings.model_reasoning,
-        messages=[{
-            "role": "user",
-            "content": (
-                "Write a detailed, well-organized summary (5-8 sentences) of "
-                f"this video for someone who hasn't watched it:\n\n{source_text}"
-            ),
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    "Write a detailed, well-organized summary (5-8 sentences) of "
+                    f"this video for someone who hasn't watched it:\n\n{source_text}"
+                ),
+            }
+        ],
         stream=True,
     )
     full_summary = ""

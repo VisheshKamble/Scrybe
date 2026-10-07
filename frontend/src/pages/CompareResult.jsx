@@ -12,7 +12,7 @@ import { youtubeThumbnail } from '../lib/youtube.js'
 // lowercased Celery state while in flight. Collapse anything non-terminal to
 // 'processing' rather than leaking Celery's vocabulary into the UI.
 function normalizeStatus(raw) {
-  if (raw === 'done') return 'done'
+  if (raw === 'done' || raw === 'completed') return 'done'
   if (raw === 'failed') return 'failed'
   return 'processing'
 }

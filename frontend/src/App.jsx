@@ -1,21 +1,27 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUpRight, GitCompare, History as HistoryIcon, Link2 } from 'lucide-react'
+import { ArrowUpRight, CalendarCheck, GitCompare, GraduationCap, Trophy, Library as LibraryIcon, Link2, Sparkles } from 'lucide-react'
 import { NavLink, Route, Routes, useLocation, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import ContextBar from './components/ContextBar.jsx'
 import { Logo } from './components/ui.jsx'
+import AskLibrary from './pages/AskLibrary.jsx'
 import Chat from './pages/Chat.jsx'
 import Compare from './pages/Compare.jsx'
 import CompareResult from './pages/CompareResult.jsx'
 import History from './pages/History.jsx'
 import Landing from './pages/Landing.jsx'
+import Library from './pages/Library.jsx'
 import Report from './pages/Report.jsx'
+import Study from './pages/Study.jsx'
 import Upload from './pages/Upload.jsx'
 
 const NAV_ITEMS = [
-  { to: '/app', label: 'Analyze', icon: Link2 },
+  { to: '/app/study', label: 'Study', icon: Trophy },
+  { to: '/app', label: 'Add', icon: Link2 },
+  { to: '/app/library', label: 'Library', icon: LibraryIcon },
+  { to: '/app/ask', label: 'Ask', icon: Sparkles },
+  { to: '/app/plans', label: 'Plans', icon: CalendarCheck },
   { to: '/app/compare', label: 'Compare', icon: GitCompare },
-  { to: '/app/history', label: 'History', icon: HistoryIcon },
 ]
 
 function NavItem({ to, label, icon: Icon }) {
@@ -68,6 +74,7 @@ function AppShell() {
 
   return (
     <div className="relative min-h-screen flex flex-col bg-paper text-ink overflow-x-hidden">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-mark focus:px-4 focus:py-2 focus:font-extrabold focus:text-ink">Skip to content</a>
       <div className="fixed inset-x-0 top-0 h-[520px] -z-10 bg-dots mask-fade-b pointer-events-none" />
 
       <header className={`sticky top-0 z-40 bg-ink border-b-4 border-mark transition-shadow duration-200 ${scrolled ? 'shadow-float' : ''}`}>
@@ -89,7 +96,7 @@ function AppShell() {
 
       <ContextBar />
 
-      <main className="flex-1">
+      <main id="main" tabIndex={-1} className="flex-1 outline-none">
         <div className="max-w-6xl mx-auto px-5 sm:px-6 py-10 md:py-14">
           <AnimatePresence mode="wait">
             <motion.div key={location.pathname} {...pageTransition}>
@@ -100,6 +107,11 @@ function AppShell() {
                 <Route path="compare" element={<Compare />} />
                 <Route path="compare/:jobId" element={<CompareResult />} />
                 <Route path="history" element={<History />} />
+                <Route path="library" element={<Library />} />
+                <Route path="study" element={<Study />} />
+                <Route path="ask" element={<AskLibrary />} />
+                <Route path="quizzes" element={<AskLibrary preset="quiz" />} />
+                <Route path="plans" element={<AskLibrary preset="study_plan" />} />
               </Routes>
             </motion.div>
           </AnimatePresence>

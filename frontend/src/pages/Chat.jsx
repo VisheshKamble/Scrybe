@@ -4,11 +4,24 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PageBanner } from '../components/ui.jsx'
 import TimestampCitation from '../components/TimestampCitation.jsx'
+import AgentTrace from '../components/AgentTrace.jsx'
+import ConfidenceBadge from '../components/ConfidenceBadge.jsx'
+import CopyButton from '../components/CopyButton.jsx'
+import EvidenceList from '../components/EvidenceList.jsx'
+import QuizCard from '../components/QuizCard.jsx'
+import StudyPlanCard from '../components/StudyPlanCard.jsx'
 import VideoPlayer from '../components/VideoPlayer.jsx'
 import { askQuestion } from '../lib/api.js'
 import { getChatMessages, getVideoMeta, saveChatMessages } from '../lib/storage.js'
 
 const SUGGESTIONS = ['Summarize the key takeaways', 'What happens around the halfway point?', 'Any claims worth double-checking?']
+
+// Follow-ups offered after a grounded answer: learn -> master.
+const FOLLOW_UPS = [
+  { label: 'Quiz me', question: 'Give me five questions based on this video', mode: 'quiz' },
+  { label: '3-day study plan', question: 'I have three days to learn this', mode: 'study_plan' },
+  { label: 'Explain like I’m a beginner', question: 'Explain the main idea like I’m a beginner', mode: 'teach', level: 'beginner' },
+]
 
 function TypingBubble() {
   return (
@@ -41,21 +54,28 @@ export default function Chat() {
     saveChatMessages(videoId, messages)
   }, [videoId, messages])
 
-  async function handleAsk(e) {
-    e.preventDefault()
-    if (!question.trim() || asking) return
+  async function send(text, options = {}) {
+    if (!text.trim() || asking) return
     setAsking(true)
-    const userMsg = { role: 'user', text: question }
+    const userMsg = { role: 'user', text }
     setMessages((prev) => [...prev, userMsg])
     setQuestion('')
     try {
-      const res = await askQuestion(videoId, userMsg.text)
-      setMessages((prev) => [...prev, { role: 'assistant', text: res.answer, timestamp: res.timestamp_seconds }])
-    } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', text: 'Couldn’t reach this video’s index just now. Ask again in a moment.' }])
+      const res = await askQuestion(videoId, userMsg.text, options)
+      setMessages((prev) => [...prev, {
+        role: 'assistant', text: res.answer, timestamp: res.timestamp_seconds, citations: res.citations ?? [],
+        confidence: res.confidence, trace: res.trace ?? [], quiz: res.quiz ?? null, studyPlan: res.study_plan ?? null,
+      }])
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'assistant', text: err?.message || 'Couldn’t reach this video’s index just now. Ask again in a moment.' }])
     } finally {
       setAsking(false)
     }
+  }
+
+  function handleAsk(e) {
+    e.preventDefault()
+    send(question)
   }
 
   function handleSeek(seconds) {
@@ -70,7 +90,7 @@ export default function Chat() {
         title="Ask about this video"
         sub="Answers come from the transcript and the on-screen visuals. Each one cites a time you can click."
         actions={jobId && (
-          <Link to={`/app/report/${jobId}`} className="inline-flex items-center gap-1.5 rounded-full bg-white border-2 border-ink px-4 py-2.5 text-[13.5px] font-extrabold text-ink hover:bg-mark transition-colors">
+          <Link to={`/app/report/${jobId}`} className="inline-flex items-center gap-1.5 rounded-full bg-white border-2 border-ink px-4 py-2.5 text-[13.5px] font-extrabold text-ink hover:bg-mark transition-colors shine">
             <ArrowLeft size={14} strokeWidth={2.6} />Back to report
           </Link>
         )}
@@ -99,7 +119,7 @@ export default function Chat() {
                 <p className="text-[14px] text-mute leading-relaxed mb-5 max-w-xs">Ask about a moment, a claim, or the big picture.</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {SUGGESTIONS.map((s) => (
-                    <button key={s} type="button" onClick={() => setQuestion(s)} className="text-[13px] font-bold text-ink border-2 border-ink bg-white rounded-full px-3.5 py-2 hover:bg-mark transition-colors">
+                    <button key={s} type="button" onClick={() => setQuestion(s)} className="text-[13px] font-bold text-ink border-2 border-ink bg-white rounded-full px-3.5 py-2 hover:bg-mark transition-colors shine">
                       {s}
                     </button>
                   ))}
@@ -116,15 +136,44 @@ export default function Chat() {
                     }`}
                   >
                     {m.text}
-                    {m.timestamp != null && (
-                      <div className="mt-2.5">
-                        <TimestampCitation seconds={m.timestamp} onClick={youtubeId ? handleSeek : undefined} />
+                    {m.quiz && <QuizCard quiz={m.quiz} videoId={videoId} onSeek={youtubeId ? handleSeek : undefined} />}
+                    {m.studyPlan && <StudyPlanCard plan={m.studyPlan} onSeek={youtubeId ? handleSeek : undefined} />}
+                    {m.role === 'assistant' && m.confidence && (
+                      <div className="flex items-center">
+                        <ConfidenceBadge confidence={m.confidence} />
+                        <CopyButton text={m.text} />
                       </div>
+                    )}
+                    <EvidenceList citations={m.citations} onSeek={youtubeId ? handleSeek : undefined} />
+                    <AgentTrace trace={m.trace} />
+                    {m.citations?.length > 0 ? (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Sources">
+                        {m.citations.map((c) => (
+                          <TimestampCitation key={c.evidence_id} seconds={c.start_seconds} onClick={youtubeId ? handleSeek : undefined} />
+                        ))}
+                      </div>
+                    ) : (
+                      m.timestamp != null && (
+                        <div className="mt-2.5">
+                          <TimestampCitation seconds={m.timestamp} onClick={youtubeId ? handleSeek : undefined} />
+                        </div>
+                      )
                     )}
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
+
+            {!asking && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && messages[messages.length - 1].confidence && messages[messages.length - 1].confidence !== 'none' && (
+              <div className="flex flex-wrap gap-2 pt-1" aria-label="Follow-up actions">
+                {FOLLOW_UPS.map((f) => (
+                  <button key={f.label} type="button" onClick={() => send(f.question, { mode: f.mode, ...(f.level ? { level: f.level } : {}) })}
+                    className="text-[13px] font-bold text-ink border-2 border-ink bg-white rounded-full px-3.5 py-2 hover:bg-mark transition-colors shine">
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {asking && (
               <div className="flex justify-start">

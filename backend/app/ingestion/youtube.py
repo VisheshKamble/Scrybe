@@ -1,86 +1,124 @@
+"""YouTube download via yt-dlp.
+
+Two separate failure classes are handled separately:
+  A. extractor / player challenges  -> JS runtime (deno + ejs) and an optional
+     PO Token provider plugin (bgutil). These make extraction *possible*.
+  B. IP-level throttling (HTTP 429 / "confirm you're not a bot") -> detected,
+     classified, and handled by the gate's cooldown + job retry policy.
+A PO Token does NOT remove (B): a flagged datacenter IP can still be blocked.
+"""
+
+from __future__ import annotations
+
+import logging
 import subprocess
-import uuid
 from pathlib import Path
 
-from app.validation import is_valid_youtube_url
+from app.config import settings
+from app.errors import ErrorCode, ScrybeError, classify_ytdlp_output
+from app.validation import canonical_youtube_url
 
-DOWNLOAD_DIR = Path("data/videos")
-DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+log = logging.getLogger("scrybe")
 
 
-def download_video(youtube_url: str) -> dict:
-    """Downloads a YouTube video (with muxed audio) via yt-dlp, and pulls
-    auto-generated captions if they exist. Caption absence is what triggers
-    the Whisper fallback in the transcript agent.
-    """
-    # youtube_url ultimately reaches subprocess.run as a positional arg to
-    # yt-dlp -- validating the shape here (rather than trusting the
-    # frontend's own check in lib/youtube.js, which a direct API call
-    # bypasses entirely) keeps a non-YouTube URL, or a string crafted to
-    # look like a CLI flag, from ever reaching that call.
-    if not is_valid_youtube_url(youtube_url):
-        raise ValueError(f"'{youtube_url}' doesn't look like a YouTube video URL.")
+def _common_args() -> list[str]:
+    args = [
+        "yt-dlp",
+        "--no-playlist",
+        "--no-warnings",
+        "--js-runtimes",
+        "deno",
+        "--remote-components",
+        "ejs:github",
+        "--retries",
+        "2",
+        "--fragment-retries",
+        "2",
+        "--extractor-retries",
+        "1",  # bounded, never infinite
+        "--socket-timeout",
+        "30",
+        "--sleep-requests",
+        "1",
+    ]
+    if settings.bgutil_base_url:
+        args += ["--extractor-args", f"youtubepot-bgutilhttp:base_url={settings.bgutil_base_url}"]
+    if settings.ytdlp_proxy:
+        args += ["--proxy", settings.ytdlp_proxy]
+    if settings.ytdlp_cookies_file:
+        args += ["--cookies", settings.ytdlp_cookies_file]
+    return args
 
-    video_id = str(uuid.uuid4())[:8]
-    out_template = str(DOWNLOAD_DIR / f"{video_id}.%(ext)s")
 
-    subprocess.run(
-        [
-            "yt-dlp",
-            # Without this, a URL that carries a `list=...` param (e.g. one
-            # copied from an "up next"/playlist context) makes yt-dlp
-            # download the *entire* playlist instead of the single video
-            # this pipeline is built around -- silently, no error, just
-            # hundreds of downloads all landing on the same output path.
-            "--no-playlist",
-            # Modern YouTube often only exposes <=720p as separate video-
-            # only + audio-only streams rather than one progressive file,
-            # so fall back to merging them if a combined stream isn't
-            # available.
-            "-f", "bv*[height<=720]+ba/b[height<=720]/best",
-            "--js-runtimes", "deno",
-            "--remote-components", "ejs:github",
-            "--merge-output-format", "mp4",
-            "-o", out_template,
-            # "--" tells yt-dlp's own arg parser that nothing after this
-            # point is an option, only the URL -- belt-and-suspenders on
-            # top of is_valid_youtube_url() above, in case validation is
-            # ever loosened later without this line being revisited too.
-            "--",
-            youtube_url,
-        ],
-        check=True,
-    )
+def build_video_args(url: str, out_template: str) -> list[str]:
+    h = settings.youtube_max_height
+    return _common_args() + [
+        "-f",
+        f"bv*[height<={h}]+ba/b[height<={h}]/best",
+        "--merge-output-format",
+        "mp4",
+        "-o",
+        out_template,
+        "--",
+        url,
+    ]
 
-    # Captions are fetched as a second, separate call and are allowed to
-    # fail (check=False). YouTube's caption endpoint gets rate-limited
-    # (HTTP 429) independently of -- and more often than -- the video CDN,
-    # and yt-dlp has no flag to make a subtitle-only failure non-fatal: it
-    # aborts the *entire* run, video included, if captions 429
-    # (https://github.com/yt-dlp/yt-dlp/issues/14153, still open upstream).
-    # A missing caption file here is already a handled case -- it's exactly
-    # what triggers the Whisper fallback in the transcript agent below.
-    subprocess.run(
-        [
-            "yt-dlp",
-            "--no-playlist",
-            "--skip-download",
-            "--js-runtimes", "deno",
-            "--remote-components", "ejs:github",
-            "--write-auto-sub", "--sub-lang", "en",
-            "--convert-subs", "srt",
-            "-o", out_template,
-            "--",
-            youtube_url,
-        ],
-        check=False,
-    )
 
-    video_path = DOWNLOAD_DIR / f"{video_id}.mp4"
-    caption_path = DOWNLOAD_DIR / f"{video_id}.en.srt"
+def build_caption_args(url: str, out_template: str) -> list[str]:
+    return _common_args() + [
+        "--skip-download",
+        "--write-auto-sub",
+        "--write-sub",
+        "--sub-lang",
+        "en",
+        "--convert-subs",
+        "srt",
+        "-o",
+        out_template,
+        "--",
+        url,
+    ]
 
-    return {
-        "video_id": video_id,
-        "video_path": str(video_path),
-        "caption_path": str(caption_path) if caption_path.exists() else None,
-    }
+
+def download_video(youtube_url: str, video_id: str, work_dir: Path) -> dict:
+    """Download into `work_dir` (caller owns cleanup). Raises ScrybeError."""
+    try:
+        url = canonical_youtube_url(youtube_url)  # only the rebuilt URL reaches yt-dlp
+    except ValueError as exc:
+        raise ScrybeError(ErrorCode.INVALID_URL, str(exc)) from exc
+
+    work_dir.mkdir(parents=True, exist_ok=True)
+    out_template = str(work_dir / f"{video_id}.%(ext)s")
+    try:
+        proc = subprocess.run(
+            build_video_args(url, out_template),
+            capture_output=True,
+            text=True,
+            timeout=settings.youtube_download_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ScrybeError(ErrorCode.YOUTUBE_NETWORK_ERROR, "yt-dlp timed out") from exc
+    except FileNotFoundError as exc:
+        raise ScrybeError(ErrorCode.INTERNAL_ERROR, "yt-dlp is not installed", retryable=False) from exc
+    if proc.returncode != 0:
+        raise classify_ytdlp_output(proc.stderr or proc.stdout)
+
+    video_path = work_dir / f"{video_id}.mp4"
+    if not video_path.exists():
+        raise ScrybeError(ErrorCode.YOUTUBE_EXTRACTOR_ERROR, "yt-dlp succeeded but produced no mp4")
+
+    # Captions are a separate, allowed-to-fail call: a missing caption file is
+    # the normal trigger for the Whisper fallback (yt-dlp can't make subtitle
+    # failures non-fatal within the video call, see yt-dlp#14153).
+    caption_path: Path | None = work_dir / f"{video_id}.en.srt"
+    try:
+        cap = subprocess.run(
+            build_caption_args(url, out_template), capture_output=True, text=True, timeout=settings.youtube_download_timeout_seconds
+        )
+        if cap.returncode != 0:
+            log.info("captions unavailable: %s", classify_ytdlp_output(cap.stderr).code.value)
+    except subprocess.TimeoutExpired:
+        log.info("captions timed out")
+    if not caption_path.exists():
+        caption_path = None
+    return {"video_path": str(video_path), "caption_path": str(caption_path) if caption_path else None}

@@ -1,4 +1,4 @@
-from typing import List, Optional, TypedDict
+from typing import Optional, TypedDict
 
 
 class VideoState(TypedDict, total=False):
@@ -6,11 +6,11 @@ class VideoState(TypedDict, total=False):
     video_path: str
     audio_path: str
     caption_path: Optional[str]
-    keyframes: List[dict]              # [{timestamp_seconds, image_path}]
+    keyframes: list[dict]  # [{timestamp_seconds, image_path}]
     transcript: str
-    transcript_segments: List[dict]    # [{start, end, text}]
-    visual_descriptions: List[dict]    # [{timestamp_seconds, description}]
-    chapters: List[dict]
-    claims: List[dict]
+    transcript_segments: list[dict]  # [{start, end, text}]
+    visual_descriptions: list[dict]  # [{timestamp_seconds, description}]
+    chapters: list[dict]
+    claims: list[dict]
     summary: str
-    errors: List[str]
+    errors: list[str]

@@ -1,0 +1,133 @@
+{
+ "_note": "SYNTHETIC lecture (tests/fixtures.py) and hand-written labels. Smoke-level benchmark for regression tracking, not evidence of quality on real videos.",
+ "cases": [
+  {
+   "question": "What is a cache hit and a cache miss?",
+   "relevant": [
+    40,
+    90
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "How does cache invalidation work with a time to live?",
+   "relevant": [
+    90,
+    150
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "When the database row changes what happens to the cached copy?",
+   "relevant": [
+    90,
+    150
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What data types does Redis support?",
+   "relevant": [
+    150,
+    210
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "How can Redis persist data to disk?",
+   "relevant": [
+    150,
+    210
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "How do you scale Redis horizontally?",
+   "relevant": [
+    210,
+    280
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What is consistent hashing used for?",
+   "relevant": [
+    210,
+    280
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What does the CAP theorem say?",
+   "relevant": [
+    280,
+    350
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What must you choose between during a network partition?",
+   "relevant": [
+    280,
+    350
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What is leader follower replication?",
+   "relevant": [
+    350,
+    420
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What causes replication lag and stale reads?",
+   "relevant": [
+    350,
+    420
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What is the thundering herd problem?",
+   "relevant": [
+    420,
+    480
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "What should I remember for an interview?",
+   "relevant": [
+    420,
+    480
+   ],
+   "intent": "answer"
+  },
+  {
+   "question": "Explain sharding like I'm a beginner",
+   "relevant": [
+    210,
+    280
+   ],
+   "intent": "teach"
+  },
+  {
+   "question": "Give me five difficult questions based on this video",
+   "relevant": null,
+   "intent": "quiz"
+  },
+  {
+   "question": "I have three days to learn this",
+   "relevant": null,
+   "intent": "study_plan"
+  }
+ ],
+ "out_of_corpus": [
+  "How do I train a convolutional neural network?",
+  "What is the boiling point of tungsten?",
+  "Who won the 1998 football world cup?",
+  "Explain quantum chromodynamics gluon confinement"
+ ]
+}

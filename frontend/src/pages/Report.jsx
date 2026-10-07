@@ -10,20 +10,22 @@ import { PageBanner, btn } from '../components/ui.jsx'
 import { useSSE } from '../hooks/useSSE.js'
 import { getJobStatus, getReport } from '../lib/api.js'
 import { getJobMeta, saveJobMeta, saveVideoMeta, upsertHistoryEntry } from '../lib/storage.js'
+import { toUiStatus, waitingNotice } from '../lib/status.js'
 import { youtubeThumbnail } from '../lib/youtube.js'
 
-function ProcessingState({ status, startedAt, youtubeId }) {
+function ProcessingState({ status, startedAt, youtubeId, job }) {
   if (status === 'failed') {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-lg mx-auto text-center py-12">
         <div className="mx-auto mb-6 w-14 h-14 rounded-2xl bg-bad-soft flex items-center justify-center">
           <XCircle size={24} className="text-bad" strokeWidth={2.3} />
         </div>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em] text-ink mb-2">This video didn’t make it through</h1>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em] text-ink mb-2">We couldn’t process this video</h1>
         <p className="text-mute text-[15.5px] leading-relaxed mb-8">
-          The pipeline stopped partway. Age-restricted, private and region-locked videos often cause this. Try another link, or submit this one again.
+          {job?.error_message || 'Something went wrong while processing this video.'}
         </p>
-        <Link to="/app" className={btn.primary}>Try another video</Link>
+        {job?.error_code && <p className="text-faint text-[12px] font-mono mb-6">{job.error_code}</p>}
+        <Link to="/app" className={btn.primary}>{job?.retryable ? 'Submit it again' : 'Try another video'}</Link>
       </motion.div>
     )
   }
@@ -38,6 +40,10 @@ function ProcessingState({ status, startedAt, youtubeId }) {
       )}
       <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em] text-ink mb-2">Reading your video</h1>
       <p className="text-mute text-[15.5px] leading-relaxed mb-6">It runs in the background. Keep this tab open, or come back from History.</p>
+      {waitingNotice(job) && (
+        <p role="status" className="mb-5 rounded-xl border-2 border-ink bg-mark px-4 py-3 text-[14px] font-semibold text-ink">{waitingNotice(job)}</p>
+      )}
+      {job?.stage && <p className="mb-3 text-[13px] font-semibold text-mute">{job.stage}{typeof job.progress === 'number' ? ` · ${job.progress}%` : ''}</p>}
       <PipelineProgress startedAt={startedAt} />
     </motion.div>
   )
@@ -52,6 +58,7 @@ const TABS = [
 export default function Report() {
   const { jobId } = useParams()
   const [status, setStatus] = useState('queued')
+  const [job, setJob] = useState(null)
   const [videoId, setVideoId] = useState(null)
   const [report, setReport] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -77,14 +84,16 @@ export default function Report() {
       try {
         const data = await getJobStatus(jobId)
         if (cancelled) return
-        setStatus(data.status)
-        upsertHistoryEntry({ id: jobId, type: 'video', jobId, status: data.status })
-        if (data.status === 'done') {
+        const ui = toUiStatus(data.status)
+        setJob(data)
+        setStatus(ui)
+        upsertHistoryEntry({ id: jobId, type: 'video', jobId, status: ui })
+        if (ui === 'done') {
           setVideoId(data.video_id)
           saveVideoMeta(data.video_id, { youtubeId: jobMeta?.youtubeId, jobId })
           saveJobMeta(jobId, { videoId: data.video_id })
           clearInterval(interval)
-        } else if (data.status === 'failed') {
+        } else if (ui === 'failed') {
           clearInterval(interval)
         }
       } catch {
@@ -128,7 +137,7 @@ export default function Report() {
 
   const youtubeId = jobMeta?.youtubeId
 
-  if (status !== 'done') return <ProcessingState status={status} startedAt={startedAtRef.current} youtubeId={youtubeId} />
+  if (status !== 'done') return <ProcessingState status={status} startedAt={startedAtRef.current} youtubeId={youtubeId} job={job} />
 
   const verified = report?.claims?.filter((c) => c.verified).length ?? 0
   const canSeek = Boolean(youtubeId)

@@ -27,6 +27,76 @@ class Settings(BaseSettings):
     # lookup that Report/CompareResult poll on is only backed by this.
     celery_result_expires_seconds: int = 24 * 60 * 60
 
+    # -- Queues / Celery ---------------------------------------------------
+    # Soft limit raises SoftTimeLimitExceeded inside the task (lets it clean
+    # up); the hard limit kills the child. Hard must be > soft.
+    ingest_soft_time_limit: int = 900
+    ingest_time_limit: int = 960
+    process_soft_time_limit: int = 3300
+    process_time_limit: int = 3420
+    # Redis broker re-delivers an un-acked message after this many seconds.
+    # With acks_late this MUST exceed the longest task time limit, otherwise a
+    # healthy long task is delivered a second time to another worker.
+    broker_visibility_timeout: int = 3600 * 2
+
+    # -- YouTube ingestion -------------------------------------------------
+    # Cluster-wide cap (enforced in Redis, not per-process) on simultaneous
+    # yt-dlp runs and on spacing between them.
+    youtube_max_concurrent_downloads: int = 1
+    youtube_min_request_delay: float = 5.0
+    youtube_max_retries: int = 3
+    youtube_retry_base_seconds: float = 30.0
+    youtube_retry_max_seconds: float = 900.0
+    # After an IP-level 429/bot-check, every worker backs off for this long
+    # instead of each one re-discovering the block by hitting YouTube again.
+    youtube_cooldown_seconds: int = 300
+    youtube_download_timeout_seconds: int = 840
+    youtube_max_height: int = 720
+    # Optional bgutil PO Token provider HTTP server, e.g. http://bgutil:4416.
+    # Empty = rely on the plugin's default (http://127.0.0.1:4416).
+    bgutil_base_url: str = ""
+    # Optional single, operator-controlled egress proxy (NOT a free-proxy
+    # pool) and optional cookies file. Both off by default.
+    ytdlp_proxy: str = ""
+    ytdlp_cookies_file: str = ""
+
+    # -- Storage -----------------------------------------------------------
+    storage_backend: str = "local"  # "local" | "s3"
+    storage_local_path: str = "./data/storage"
+    s3_bucket: str = ""
+    s3_endpoint_url: str = ""  # set for R2 / MinIO / B2 etc.
+    s3_region: str = ""
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    # Source video is only needed during processing; delete it from object
+    # storage once the report exists unless this is set.
+    retain_source_video: bool = False
+    # Scratch dir for per-job temp files (always deleted in `finally`).
+    work_dir: str = "./data/work"
+
+    # -- Abuse limits (enforced in Redis, shared across API instances) -----
+    api_rate_limit: int = 60  # requests / minute / client
+    max_video_jobs_per_user: int = 20  # submissions / 24h / client
+    max_active_jobs_per_user: int = 3
+    trust_forwarded_for: bool = True  # Render/most PaaS sit behind a proxy
+    job_ttl_seconds: int = 7 * 24 * 3600
+
+    # -- Ask Scrybe (agent) -----------------------------------------------
+    retrieval_top_k: int = 8
+    retrieval_min_score: float = 0.25
+    evidence_max_chars: int = 6000
+    # 0 disables. Cached only for successful, grounded answers.
+    answer_cache_ttl_seconds: int = 3600
+    agent_max_steps: int = 8
+    agent_llm_timeout_seconds: float = 60.0
+    verify_min_grounding: float = 0.35
+    embedding_provider: str = "sentence-transformers"  # | "hash" (tests/eval)
+    chunk_target_seconds: float = 40.0
+    chunk_max_chars: int = 900
+    # Optional $/1M-token prices so cost can be *estimated*; no defaults are
+    # invented. Format: "model:input_price:output_price,model2:..."
+    llm_prices: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

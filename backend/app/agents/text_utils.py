@@ -48,15 +48,17 @@ def condense_if_long(text: str, model: str) -> str:
         response = call_with_retries(
             _client.chat.completions.create,
             model=model,
-            messages=[{
-                "role": "user",
-                "content": (
-                    "Condense this excerpt from a longer video transcript "
-                    "into 3-4 sentences. Keep specific facts, numbers, "
-                    "names, and claims; drop filler and repetition.\n\n"
-                    f"{chunk}"
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "Condense this excerpt from a longer video transcript "
+                        "into 3-4 sentences. Keep specific facts, numbers, "
+                        "names, and claims; drop filler and repetition.\n\n"
+                        f"{chunk}"
+                    ),
+                }
+            ],
         )
         summaries.append(response.choices[0].message.content)
 

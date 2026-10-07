@@ -1,0 +1,9 @@
+# Sync with a labels action (e.g. EndBug/label-sync) or create manually.
+- { name: "good first issue", color: "7057ff", description: "Small, well-scoped, mentored" }
+- { name: "help wanted", color: "008672", description: "Maintainers would welcome a contribution" }
+- { name: "bug", color: "d73a4a" }
+- { name: "enhancement", color: "a2eeef" }
+- { name: "rag", color: "fbca04" }
+- { name: "agents", color: "1d76db" }
+- { name: "ingestion", color: "e99695" }
+- { name: "docs", color: "0075ca" }

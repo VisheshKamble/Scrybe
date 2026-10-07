@@ -1,15 +1,14 @@
 import html
-import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from weasyprint import HTML
 
+from app.errors import ScrybeError
+from app.report_store import load_report
 from app.validation import is_valid_video_id
 
 router = APIRouter(prefix="/export", tags=["export"])
-REPORT_DIR = Path("data/reports")
 EXPORT_DIR = Path("data/exports")
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -18,10 +17,10 @@ def _load_report(video_id: str) -> dict:
     # See app/validation.py -- video_id feeds straight into a path below.
     if not is_valid_video_id(video_id):
         raise HTTPException(404, "Report not found -- has this video finished processing?")
-    path = REPORT_DIR / f"{video_id}.json"
-    if not path.exists():
-        raise HTTPException(404, "Report not found -- has this video finished processing?")
-    return json.loads(path.read_text())
+    try:
+        return load_report(video_id)
+    except ScrybeError:
+        raise HTTPException(404, "Report not found -- has this video finished processing?") from None
 
 
 def _report_to_html(report: dict) -> str:
@@ -35,14 +34,11 @@ def _report_to_html(report: dict) -> str:
     # corrupting the rendered PDF around it.
     e = html.escape
     chapters_html = "".join(
-        f"<li><strong>{e(c['title'])}</strong> "
-        f"({c['start_seconds']:.0f}s\u2013{c['end_seconds']:.0f}s)"
-        f"<p>{e(c['summary'])}</p></li>"
+        f"<li><strong>{e(c['title'])}</strong> ({c['start_seconds']:.0f}s\u2013{c['end_seconds']:.0f}s)<p>{e(c['summary'])}</p></li>"
         for c in report["chapters"]
     )
     claims_html = "".join(
-        f"<li>{e(c['text'])} \u2014 <em>{'verified' if c['verified'] else 'unverified'}</em></li>"
-        for c in report["claims"]
+        f"<li>{e(c['text'])} \u2014 <em>{'verified' if c['verified'] else 'unverified'}</em></li>" for c in report["claims"]
     )
     return (
         f"<html><body>"
@@ -72,6 +68,8 @@ def export_markdown(video_id: str):
 
 @router.get("/{video_id}/pdf")
 def export_pdf(video_id: str):
+    from weasyprint import HTML  # lazy: needs native Pango libs
+
     report = _load_report(video_id)
     html = _report_to_html(report)
     path = EXPORT_DIR / f"{video_id}.pdf"

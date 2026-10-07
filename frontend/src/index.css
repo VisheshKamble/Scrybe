@@ -105,3 +105,139 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ===== Visual layer: aurora, grain, glass, depth =====================
+   Pure CSS on top of the existing tokens; no markup dependency except
+   the opt-in classes .lift .glass .gradient-text .shine. */
+
+body { position: relative; isolation: isolate; }
+
+/* Slow-moving colour field behind everything (blue / violet / pink / mint). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -20%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 18% 22%, rgba(43, 59, 238, 0.22), transparent 70%),
+    radial-gradient(34% 32% at 82% 14%, rgba(106, 61, 240, 0.20), transparent 70%),
+    radial-gradient(36% 34% at 70% 84%, rgba(255, 79, 139, 0.16), transparent 70%),
+    radial-gradient(30% 30% at 12% 82%, rgba(20, 211, 160, 0.16), transparent 70%);
+  filter: blur(24px);
+  animation: aurora 26s ease-in-out infinite alternate;
+}
+
+/* Fine film grain so flat colour feels printed, not digital. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .07  0 0 0 0 .09  0 0 0 0 .17  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+@keyframes aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+  50%  { transform: translate3d(2%, -3%, 0) scale(1.08) rotate(3deg); }
+  100% { transform: translate3d(-3%, 2%, 0) scale(1.03) rotate(-2deg); }
+}
+
+/* Assistant chat bubbles: frosted glass with a coloured hairline. */
+.rounded-2xl.rounded-bl-md {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  backdrop-filter: blur(10px) saturate(1.4);
+  border-color: rgba(43, 59, 238, 0.18);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 14px 30px -18px rgba(43, 59, 238, 0.45);
+}
+
+/* Opt-in helpers */
+.glass {
+  background: rgba(255, 255, 255, 0.66);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  backdrop-filter: blur(12px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.lift {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms ease, border-color 180ms ease;
+  box-shadow: 3px 3px 0 0 rgba(18, 23, 43, 0.9);
+}
+.lift:hover {
+  transform: translate(-2px, -3px);
+  box-shadow: 6px 7px 0 0 #12172B;
+  border-color: #12172B;
+}
+
+.gradient-text {
+  background: linear-gradient(95deg, #2b3bee 0%, #6a3df0 45%, #ff4f8b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Light sweep across primary actions. */
+.shine { position: relative; overflow: hidden; }
+.shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  transform: translateX(-120%);
+  transition: transform 650ms ease;
+}
+.shine:hover::after { transform: translateX(120%); }
+
+/* Citation chips glow and press like physical tape labels. */
+button.font-mono { transition: transform 120ms ease, box-shadow 160ms ease, background-color 150ms ease; }
+button.font-mono:hover { transform: translateY(-1px) rotate(-1deg); box-shadow: 0 6px 14px -6px rgba(255, 221, 74, 0.95), 2px 2px 0 0 #12172B; }
+button.font-mono:active { transform: translateY(1px); box-shadow: none; }
+
+/* Messages and cards ease in instead of snapping. */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+[aria-label="Follow-up actions"] > button { animation: rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+[aria-label="Follow-up actions"] > button:nth-child(2) { animation-delay: 70ms; }
+[aria-label="Follow-up actions"] > button:nth-child(3) { animation-delay: 140ms; }
+[aria-label="Follow-up actions"] > button:hover { transform: translate(-1px, -2px); box-shadow: 3px 4px 0 0 #12172B; }
+
+@media (prefers-reduced-motion: reduce) {
+  body::before, .shine::after, [aria-label="Follow-up actions"] > button { animation: none; transition: none; }
+  .lift, button.font-mono { transition: none; }
+}
+
+/* ===== Accessibility and mobile ===================================== */
+:focus-visible { outline: 3px solid #2b3bee; outline-offset: 2px; border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.focus\:not-sr-only:focus { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
+@media (pointer: coarse) {
+  nav[aria-label="Workspace"] a { min-height: 44px; }
+  button, [role="button"], summary { min-height: 40px; }
+}
+@media (max-width: 640px) {
+  input, textarea, select { font-size: 16px; } /* stops iOS zoom-on-focus */
+  main { padding-bottom: env(safe-area-inset-bottom); }
+}
+@media (prefers-contrast: more) { body::before, body::after { display: none; } }
+
+/* ===== Creative touches ============================================== */
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confetti span {
+  position: absolute; top: -12px; left: calc(var(--i) * 5.5%); width: 9px; height: 14px; border-radius: 2px;
+  background: hsl(calc(var(--i) * 47), 90%, 58%); animation: fall calc(1.8s + var(--i) * 0.07s) ease-in calc(var(--i) * 0.05s) both;
+}
+@keyframes fall { to { transform: translateY(520px) rotate(540deg); opacity: 0; } }
+section[aria-label="Results"] { position: relative; overflow: hidden; }
+
+/* Primary cards get a slow-rotating gradient edge. */
+@property --edge { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.glass.shadow-pop { border-color: transparent; background:
+  linear-gradient(rgba(255,255,255,0.86), rgba(255,255,255,0.86)) padding-box,
+  conic-gradient(from var(--edge), #2b3bee, #6a3df0, #ff4f8b, #14d3a0, #2b3bee) border-box;
+  animation: spin-edge 9s linear infinite; }
+@keyframes spin-edge { to { --edge: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .confetti span, .glass.shadow-pop { animation: none; } }

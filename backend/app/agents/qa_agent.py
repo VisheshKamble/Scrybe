@@ -22,22 +22,22 @@ def answer_question(video_id: str, question: str) -> dict:
             "source_snippets": [],
         }
 
-    context = "\n".join(
-        f"[{m['timestamp_seconds']:.0f}s, {m['source']}] {m['text']}" for m in matches
-    )
+    context = "\n".join(f"[{m['timestamp_seconds']:.0f}s, {m['source']}] {m['text']}" for m in matches)
 
     response = client.chat.completions.create(
         model=settings.model_reasoning,
-        messages=[{
-            "role": "user",
-            "content": (
-                "Answer the question using only the context below -- it "
-                "mixes transcript lines and visual-frame descriptions, each "
-                "tagged with a timestamp. Cite the single most relevant "
-                "timestamp in seconds.\n\n"
-                f"CONTEXT:\n{context}\n\nQUESTION: {question}"
-            ),
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    "Answer the question using only the context below -- it "
+                    "mixes transcript lines and visual-frame descriptions, each "
+                    "tagged with a timestamp. Cite the single most relevant "
+                    "timestamp in seconds.\n\n"
+                    f"CONTEXT:\n{context}\n\nQUESTION: {question}"
+                ),
+            }
+        ],
     )
 
     return {

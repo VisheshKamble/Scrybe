@@ -35,20 +35,25 @@ export default function Hero() {
           </motion.p>
 
           <h1 className="font-display font-extrabold text-[clamp(2.7rem,6.6vw,4.9rem)] leading-[1.02] tracking-[-0.045em] text-white [text-wrap:balance]">
-            <motion.span variants={item} className="block">Paste a video.</motion.span>
-            <motion.span variants={item} className="block">Get back what was</motion.span>
+            <motion.span variants={item} className="block">Don&rsquo;t watch hours.</motion.span>
+            <motion.span variants={item} className="block">Ask Scrybe what was</motion.span>
             <motion.span variants={item} className="block mt-1">
               <W c="mark" tilt={-2}>said</W>, <W c="sky" tilt={1.5}>shown</W>, and <W c="mint" tilt={-1}>true</W>.
             </motion.span>
           </h1>
 
           <motion.p variants={item} className="mt-7 text-[18px] leading-[1.55] text-white/85 max-w-[30rem]">
-            Scrybe transcribes the audio, reads the slides and code on screen, fact-checks the claims,
-            and hands you a chaptered report. Every line points to the second it came from.
+            Turn long-form video into knowledge you can search, understand, and act on. Ask anything,
+            get an answer checked against the video, and jump to the exact second it came from.
           </motion.p>
 
           <motion.div variants={item} className="mt-9 max-w-[31rem]">
             <LinkForm id="hero-link" dark />
+            <ul className="mt-5 flex flex-wrap gap-2 text-[12.5px] font-bold text-white/90" aria-label="Highlights">
+              {['Timestamp-grounded', 'Verified answers', 'Quizzes & study plans', 'Open source'].map((t) => (
+                <li key={t} className="rounded-full border border-white/30 bg-white/10 px-3 py-1 backdrop-blur">{t}</li>
+              ))}
+            </ul>
           </motion.div>
 
           <motion.ul variants={item} className="mt-10 grid grid-cols-2 gap-x-6 gap-y-3.5 max-w-[31rem]">

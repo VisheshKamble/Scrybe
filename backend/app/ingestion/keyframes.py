@@ -4,11 +4,8 @@ from scenedetect import SceneManager, open_video
 from scenedetect.detectors import ContentDetector
 from scenedetect.scene_manager import save_images
 
-FRAME_DIR = Path("data/keyframes")
-FRAME_DIR.mkdir(parents=True, exist_ok=True)
 
-
-def extract_keyframes(video_path: str, video_id: str, max_frames: int = 24) -> list[dict]:
+def extract_keyframes(video_path: str, video_id: str, max_frames: int = 24, out_root: Path | None = None) -> list[dict]:
     """Samples one frame per detected scene change, rather than at fixed
     intervals -- this avoids wasting vision-model calls on near-duplicate
     frames during a static shot.
@@ -19,8 +16,8 @@ def extract_keyframes(video_path: str, video_id: str, max_frames: int = 24) -> l
     scene_manager.detect_scenes(video)
     scenes = scene_manager.get_scene_list()[:max_frames]
 
-    out_dir = FRAME_DIR / video_id
-    out_dir.mkdir(exist_ok=True)
+    out_dir = (out_root or Path("data/keyframes")) / video_id
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # save_images()'s *default* image_name_template is
     # "$VIDEO_NAME-Scene-$SCENE_NUMBER-$IMAGE_NUMBER" -- it includes the
@@ -44,8 +41,10 @@ def extract_keyframes(video_path: str, video_id: str, max_frames: int = 24) -> l
             continue
         # save_images() returns filenames relative to output_dir, not full
         # paths -- confirmed by testing against a real video, not assumed.
-        keyframes.append({
-            "timestamp_seconds": start.get_seconds(),
-            "image_path": str(out_dir / paths[0]),
-        })
+        keyframes.append(
+            {
+                "timestamp_seconds": start.get_seconds(),
+                "image_path": str(out_dir / paths[0]),
+            }
+        )
     return keyframes

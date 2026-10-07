@@ -1,24 +1,35 @@
+# Local stack: API + two independently scalable worker pools + Redis + PO Token provider.
+#   cp backend/.env.example backend/.env   (set GROQ_API_KEY)
+#   docker compose up --build
+x-backend: &backend
+  build: ./backend
+  env_file: ./backend/.env
+  environment:
+    REDIS_URL: redis://redis:6379/0
+    STORAGE_BACKEND: local
+    STORAGE_LOCAL_PATH: /app/data/storage
+    BGUTIL_BASE_URL: http://bgutil:4416
+  volumes:
+    - scrybe-data:/app/data
+  depends_on:
+    redis:
+      condition: service_started
+
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    ports: ["6379:6379"]
+
+  # PO Token provider for yt-dlp (plugin `bgutil-ytdlp-pot-provider` talks to this).
+  # The server version must match the plugin's major version (plugin pinned in
+  # requirements.txt); pin this image tag accordingly.
+  bgutil:
+    image: brainicism/bgutil-ytdlp-pot-provider
+    ports: ["4416:4416"]
 
   backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    env_file: ./backend/.env
-    depends_on:
-      - redis
-    volumes:
-      - ./backend/data:/app/data
-    # Backend takes a while to import torch/sentence-transformers/langgraph
-    # before Uvicorn actually starts listening -- this healthcheck lets
-    # frontend wait for it to be genuinely ready, not just started. (The
-    # embedding model itself is now baked into the image at build time and
-    # loaded lazily rather than at import, so this should only need its
-    # full budget on a slow machine, not a full model download.)
+    <<: *backend
+    ports: ["8000:8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 5s
@@ -26,24 +37,35 @@ services:
       retries: 30
       start_period: 30s
 
-  worker:
-    build: ./backend
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
-    env_file: ./backend/.env
-    # Celery only talks to Redis (broker/result backend), never to the
-    # FastAPI backend directly, so it doesn't need to wait on backend's
-    # healthcheck -- doing so just meant a slow backend startup took the
-    # worker down with it too.
-    depends_on:
-      redis:
-        condition: service_started
-    volumes:
-      - ./backend/data:/app/data
+  # Only this pool talks to YouTube. Keep it small: this is your egress budget.
+  worker-youtube:
+    <<: *backend
+    command: ./worker_entrypoint.sh
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_PATH: /app/data/storage
+      BGUTIL_BASE_URL: http://bgutil:4416
+      CELERY_QUEUES: youtube_ingestion
+      CELERY_CONCURRENCY: "1"
+
+  # Transcription, vision, chapters, embeddings, comparison. Scale freely: `--scale worker-processing=3`.
+  worker-processing:
+    <<: *backend
+    command: ./worker_entrypoint.sh
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_PATH: /app/data/storage
+      CELERY_QUEUES: video_processing,embeddings,ai_tasks,reports
+      CELERY_CONCURRENCY: "2"
 
   frontend:
     build: ./frontend
-    ports:
-      - "5173:80"
+    ports: ["5173:80"]
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  scrybe-data:

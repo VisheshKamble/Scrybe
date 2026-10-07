@@ -8,6 +8,7 @@ import Pipeline from '../components/landing/Pipeline.jsx'
 import Reads from '../components/landing/Reads.jsx'
 import RunIt from '../components/landing/RunIt.jsx'
 import Stats from '../components/landing/Stats.jsx'
+import Students from '../components/landing/Students.jsx'
 import UseCases from '../components/landing/UseCases.jsx'
 
 export default function Landing() {
@@ -16,6 +17,7 @@ export default function Landing() {
       <Navbar />
       <main>
         <Hero />
+        <Students />
         <Marquee />
         <Reads />
         <Stats />

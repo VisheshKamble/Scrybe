@@ -21,10 +21,7 @@ def _bucket_transcript_lines(segments: list[dict], bucket_seconds: float) -> str
     for s in segments:
         bucket_start = int(s["start"] // bucket_seconds) * bucket_seconds
         buckets.setdefault(bucket_start, []).append(s["text"])
-    return "\n".join(
-        f"[{start:.0f}s] {' '.join(texts)}"
-        for start, texts in sorted(buckets.items())
-    )
+    return "\n".join(f"[{start:.0f}s] {' '.join(texts)}" for start, texts in sorted(buckets.items()))
 
 
 def _build_transcript_lines(segments: list[dict]) -> str:
@@ -41,12 +38,14 @@ def _fallback_chapters(state: dict) -> list[dict]:
     """
     segments = state.get("transcript_segments", [])
     end_seconds = max((s["end"] for s in segments), default=0.0)
-    return [{
-        "title": "Full video",
-        "start_seconds": 0.0,
-        "end_seconds": end_seconds,
-        "summary": "Chapter breakdown wasn't available for this video.",
-    }]
+    return [
+        {
+            "title": "Full video",
+            "start_seconds": 0.0,
+            "end_seconds": end_seconds,
+            "summary": "Chapter breakdown wasn't available for this video.",
+        }
+    ]
 
 
 def run_segmentation_agent(state: dict) -> dict:
@@ -55,8 +54,7 @@ def run_segmentation_agent(state: dict) -> dict:
     """
     transcript_lines = _build_transcript_lines(state["transcript_segments"])
     visual_lines = "\n".join(
-        f"[{v['timestamp_seconds']:.0f}s] {v['description']}"
-        for v in state.get("visual_descriptions", []) if v["description"]
+        f"[{v['timestamp_seconds']:.0f}s] {v['description']}" for v in state.get("visual_descriptions", []) if v["description"]
     )
 
     prompt = (

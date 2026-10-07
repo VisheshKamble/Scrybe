@@ -21,19 +21,22 @@ def describe_keyframe(image_path: str) -> str:
     response = call_with_retries(
         client.chat.completions.create,
         model=settings.model_vision,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": (
-                    "Describe what's visible in this video frame in 2-3 "
-                    "sentences: on-screen text, charts, code, UI, people, "
-                    "or actions. Be specific, not generic."
-                )},
-                {"type": "image_url", "image_url": {
-                    "url": f"data:image/jpeg;base64,{encoded}"
-                }},
-            ],
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Describe what's visible in this video frame in 2-3 "
+                            "sentences: on-screen text, charts, code, UI, people, "
+                            "or actions. Be specific, not generic."
+                        ),
+                    },
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded}"}},
+                ],
+            }
+        ],
     )
     return response.choices[0].message.content
 
@@ -47,9 +50,11 @@ def run_visual_agent(state: dict) -> dict:
             # Don't let one bad frame kill the whole pipeline.
             desc = None
             state.setdefault("errors", []).append(f"visual_agent: {exc}")
-        descriptions.append({
-            "timestamp_seconds": frame["timestamp_seconds"],
-            "description": desc,
-        })
+        descriptions.append(
+            {
+                "timestamp_seconds": frame["timestamp_seconds"],
+                "description": desc,
+            }
+        )
     state["visual_descriptions"] = descriptions
     return state

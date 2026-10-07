@@ -1,59 +1,58 @@
-import json
-from pathlib import Path
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
-
-from app.celery_app import celery_app
-from app.ingestion.screenshots import save_uploaded_screenshot
+from app.errors import ErrorCode, ScrybeError
+from app.jobs import JobStore, public_view
 from app.models.schemas import JobStatusResponse, VideoSubmitRequest
-from app.tasks.process_video import process_video_task
-from app.validation import is_valid_video_id, is_valid_youtube_url
+from app.ratelimit import client_id, enforce_api_rate_limit
+from app.report_store import load_report
+from app.services import submit_video
+from app.validation import is_valid_job_id, is_valid_video_id
 
-router = APIRouter(prefix="/videos", tags=["videos"])
-REPORT_DIR = Path("data/reports")
+router = APIRouter(prefix="/videos", tags=["videos"], dependencies=[Depends(enforce_api_rate_limit)])
+
+
+def _status_model(job: dict) -> JobStatusResponse:
+    view = public_view(job)
+    return JobStatusResponse(**view, error=view["error_message"])
 
 
 @router.post("", response_model=JobStatusResponse)
-def submit_video(payload: VideoSubmitRequest):
-    # The frontend already validates this shape before submitting (see
-    # lib/youtube.js), but that's client-side only -- anyone calling this
-    # API directly skips it entirely. Checking again here means a bad URL
-    # is rejected immediately with a 400 instead of silently becoming a
-    # queued job that's only discovered to have failed a minute later.
-    if not is_valid_youtube_url(payload.youtube_url):
-        raise HTTPException(400, "That doesn't look like a YouTube video URL.")
-    task = process_video_task.delay(payload.youtube_url)
-    return JobStatusResponse(job_id=task.id, status="queued")
+def create_video_job(payload: VideoSubmitRequest, request: Request):
+    """Creates (or returns the existing) job and returns immediately."""
+    job, _created = submit_video(payload.youtube_url, client_id(request))
+    return _status_model(job)
 
 
-@router.get("/{job_id}/status", response_model=JobStatusResponse)
-def get_status(job_id: str):
-    result = celery_app.AsyncResult(job_id)
-    if result.state == "SUCCESS":
-        return JobStatusResponse(job_id=job_id, status="done", video_id=result.result["video_id"])
-    if result.state == "FAILURE":
-        return JobStatusResponse(job_id=job_id, status="failed", error=str(result.result))
-    if result.state == "STARTED":
-        return JobStatusResponse(job_id=job_id, status="processing")
-    return JobStatusResponse(job_id=job_id, status="queued")
+@router.get("/{job_id}", response_model=JobStatusResponse)
+@router.get("/{job_id}/status", response_model=JobStatusResponse, include_in_schema=False)  # legacy path
+def get_job(job_id: str):
+    job = JobStore().get(job_id) if is_valid_job_id(job_id) else None
+    if not job:
+        raise ScrybeError(ErrorCode.JOB_NOT_FOUND)
+    return _status_model(job)
 
 
 @router.get("/{video_id}/report")
 def get_report(video_id: str):
-    # video_id ends up directly in a filesystem path below -- rejecting
-    # anything that isn't the exact shape app/ingestion/youtube.py mints
-    # (8 lowercase hex chars) before it gets there is cheap insurance
-    # against a malformed value ever being used to build a path.
     if not is_valid_video_id(video_id):
         raise HTTPException(404, "Report not found -- has this video finished processing?")
-    path = REPORT_DIR / f"{video_id}.json"
-    if not path.exists():
-        raise HTTPException(404, "Report not found -- has this video finished processing?")
-    return json.loads(path.read_text())
+    try:
+        return load_report(video_id)
+    except ScrybeError:
+        raise HTTPException(404, "Report not found -- has this video finished processing?") from None
+
+
+MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024
 
 
 @router.post("/screenshot")
 async def submit_screenshot(video_id: str, file: UploadFile = File(...)):
-    extension = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
-    path = save_uploaded_screenshot(await file.read(), extension)
-    return {"video_id": video_id, "saved_path": path}
+    from app.ingestion.screenshots import save_uploaded_screenshot
+
+    if not is_valid_video_id(video_id):
+        raise HTTPException(404, "Unknown video.")
+    data = await file.read(MAX_SCREENSHOT_BYTES + 1)
+    if len(data) > MAX_SCREENSHOT_BYTES:
+        raise HTTPException(413, "Screenshot too large (max 5 MB).")
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
+    return {"video_id": video_id, "saved_path": save_uploaded_screenshot(data, ext)}

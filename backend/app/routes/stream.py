@@ -1,15 +1,12 @@
-import json
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 from redis import asyncio as aioredis
 from sse_starlette.sse import EventSourceResponse
 
 from app.config import settings
+from app.report_store import load_report, report_exists
 from app.validation import is_valid_video_id
 
 router = APIRouter(prefix="/stream", tags=["stream"])
-REPORT_DIR = Path("data/reports")
 
 
 @router.get("/{video_id}")
@@ -38,11 +35,10 @@ async def stream_report(video_id: str):
     # name below.
     if not is_valid_video_id(video_id):
         raise HTTPException(404, "Unknown video.")
-    report_path = REPORT_DIR / f"{video_id}.json"
 
     async def event_generator():
-        if report_path.exists():
-            report = json.loads(report_path.read_text())
+        if report_exists(video_id):
+            report = load_report(video_id)
             yield {"event": "token", "data": report.get("summary", "")}
             yield {"event": "done", "data": ""}
             return

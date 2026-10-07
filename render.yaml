@@ -1,3 +1,9 @@
+# Default: ONE free web service running the API plus a single embedded worker that
+# consumes every queue (render_entrypoint.sh). Simple, but the API and the worker
+# share one process tree and one local disk.
+#
+# To scale, move to separate services (paid plans: background workers) and switch
+# STORAGE_BACKEND to s3 -- see docs/deployment.md for the full split topology.
 services:
   - type: web
     name: scrybe-api
@@ -6,7 +12,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     dockerCommand: ./render_entrypoint.sh
-    healthCheckPath: /health
+    healthCheckPath: /health   # liveness only; never depends on YouTube/Redis
     envVars:
       - key: GROQ_API_KEY
         sync: false
@@ -14,3 +20,36 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: STORAGE_BACKEND
+        value: local
+      - key: YOUTUBE_MAX_CONCURRENT_DOWNLOADS
+        value: "1"
+      - key: YOUTUBE_MIN_REQUEST_DELAY
+        value: "5"
+      - key: BGUTIL_BASE_URL
+        sync: false   # set when a bgutil provider service is deployed
+
+  # --- Split topology (uncomment on paid plans; needs STORAGE_BACKEND=s3 + S3_* vars) ---
+  # - type: worker
+  #   name: scrybe-youtube-worker
+  #   runtime: docker
+  #   dockerfilePath: ./backend/Dockerfile
+  #   dockerContext: ./backend
+  #   dockerCommand: ./worker_entrypoint.sh
+  #   envVars:
+  #     - { key: CELERY_QUEUES, value: youtube_ingestion }
+  #     - { key: CELERY_CONCURRENCY, value: "1" }
+  #     # + GROQ_API_KEY, REDIS_URL, STORAGE_BACKEND=s3, S3_*, BGUTIL_BASE_URL, YTDLP_PROXY
+  # - type: worker
+  #   name: scrybe-processing-worker
+  #   runtime: docker
+  #   dockerfilePath: ./backend/Dockerfile
+  #   dockerContext: ./backend
+  #   dockerCommand: ./worker_entrypoint.sh
+  #   envVars:
+  #     - { key: CELERY_QUEUES, value: "video_processing,embeddings,ai_tasks,reports" }
+  #     - { key: CELERY_CONCURRENCY, value: "2" }
+  # - type: pserv           # private service: bgutil PO Token provider (image-backed)
+  #   name: scrybe-bgutil
+  #   runtime: image
+  #   image: { url: docker.io/brainicism/bgutil-ytdlp-pot-provider }

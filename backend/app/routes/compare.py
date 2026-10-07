@@ -1,34 +1,47 @@
-from fastapi import APIRouter, HTTPException
+import json
 
-from app.celery_app import celery_app
+from fastapi import APIRouter, Depends, Request
+
+from app.errors import ErrorCode, ScrybeError
+from app.jobs import JobStatus, JobStore
 from app.models.schemas import CompareRequest
-from app.tasks.compare_videos import dispatch_comparison
-from app.validation import is_valid_youtube_url
+from app.ratelimit import client_id, enforce_api_rate_limit
+from app.services import submit_video
+from app.storage import get_storage
+from app.tasks.compare_videos import compare_key, compare_task
+from app.validation import is_valid_job_id, is_valid_youtube_url
 
-router = APIRouter(prefix="/compare", tags=["compare"])
+router = APIRouter(prefix="/compare", tags=["compare"], dependencies=[Depends(enforce_api_rate_limit)])
 
 
 @router.post("")
-def compare(payload: CompareRequest):
-    # Same reasoning as videos.py:submit_video -- the frontend already
-    # enforces "at least two, all valid YouTube URLs" (see Compare.jsx),
-    # but that's bypassable by anyone calling the API directly. Checking
-    # again here rejects a bad request immediately instead of dispatching
-    # a chord of Celery tasks that's only discovered to be broken later.
+def compare(payload: CompareRequest, request: Request):
     if len(payload.youtube_urls) < 2:
-        raise HTTPException(400, "Add at least two YouTube URLs to compare.")
-    invalid = next((u for u in payload.youtube_urls if not is_valid_youtube_url(u)), None)
-    if invalid:
-        raise HTTPException(400, f"'{invalid}' doesn't look like a YouTube video URL.")
-    async_result = dispatch_comparison(payload.youtube_urls, payload.focus)
-    return {"job_id": async_result.id, "status": "queued"}
+        raise ScrybeError(ErrorCode.INVALID_URL, "need at least two URLs")
+    if not all(is_valid_youtube_url(u) for u in payload.youtube_urls):
+        raise ScrybeError(ErrorCode.INVALID_URL, "bad url in compare list")
+    cid = client_id(request)
+    jobs = [submit_video(u, cid)[0] for u in payload.youtube_urls]
+    store = JobStore()
+    cmp_job = store.create(
+        kind="compare",
+        source_url="",
+        video_id=None,
+        client_id=cid,
+        extra={"video_job_ids": ",".join(j["job_id"] for j in jobs), "focus": payload.focus or ""},
+    )
+    compare_task.apply_async(args=[cmp_job["job_id"]], queue="ai_tasks")
+    return {"job_id": cmp_job["job_id"], "status": "queued"}
 
 
 @router.get("/{job_id}/status")
 def compare_status(job_id: str):
-    result = celery_app.AsyncResult(job_id)
-    if result.state == "SUCCESS":
-        return {"status": "done", "result": result.result}
-    if result.state == "FAILURE":
-        return {"status": "failed", "error": str(result.result)}
-    return {"status": result.state.lower()}
+    job = JobStore().get(job_id) if is_valid_job_id(job_id) else None
+    if not job:
+        raise ScrybeError(ErrorCode.JOB_NOT_FOUND)
+    base = {"job_id": job_id, "status": job["status"], "stage": job.get("stage"), "progress": job.get("progress", 0)}
+    if job["status"] == JobStatus.COMPLETED.value:
+        base["result"] = json.loads(get_storage().download(compare_key(job_id)))
+    if job["status"] == JobStatus.FAILED.value:
+        base.update(error_code=job["error_code"], error=job["error_message"])
+    return base

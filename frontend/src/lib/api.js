@@ -14,7 +14,9 @@ async function throwWithDetail(res, fallbackMessage) {
   } catch {
     // response body wasn't JSON -- nothing more specific to report
   }
-  throw new Error(typeof detail === 'string' && detail ? detail : fallbackMessage)
+  const err = new Error(typeof detail === 'string' && detail ? detail : fallbackMessage)
+  err.status = res.status
+  throw err
 }
 
 export async function submitVideo(youtubeUrl) {
@@ -39,11 +41,11 @@ export async function getReport(videoId) {
   return res.json()
 }
 
-export async function askQuestion(videoId, question) {
-  const res = await fetch(`${BASE_URL}/qa`, {
+export async function askQuestion(videoId, question, options = {}) {
+  const res = await fetch(`${BASE_URL}/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ video_id: videoId, question }),
+    body: JSON.stringify({ video_ids: [videoId], question, ...options }),
   })
   if (!res.ok) await throwWithDetail(res, 'Failed to get answer')
   return res.json()
@@ -67,4 +69,37 @@ export async function getCompareStatus(jobId) {
 
 export function exportReportUrl(videoId, format) {
   return `${BASE_URL}/export/${videoId}/${format}`
+}
+
+export async function postQuizResult(result) {
+  // Fire-and-forget stats; a failure must never block the quiz UI.
+  try {
+    const res = await fetch(`${BASE_URL}/quiz/results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(result),
+    })
+    return res.ok ? res.json() : null
+  } catch {
+    return null
+  }
+}
+
+export async function askMany(videoIds, question, options = {}) {
+  const res = await fetch(`${BASE_URL}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ video_ids: videoIds, question, ...options }),
+  })
+  if (!res.ok) await throwWithDetail(res, 'Couldn’t answer that just now. Try again in a moment.')
+  return res.json()
+}
+
+export async function getQuizStats(videoId) {
+  try {
+    const res = await fetch(`${BASE_URL}/quiz/stats/${videoId}`)
+    return res.ok ? res.json() : null
+  } catch {
+    return null
+  }
 }

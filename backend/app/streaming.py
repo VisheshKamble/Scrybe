@@ -3,6 +3,7 @@ FastAPI SSE endpoint (consumer). This is what lets a report stream live
 to the browser even though it's actually being generated in a background
 worker process, not in the request/response cycle.
 """
+
 import redis
 
 from app.config import settings
